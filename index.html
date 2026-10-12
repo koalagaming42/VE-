@@ -116,10 +116,12 @@ body.undo-on .toast{bottom:calc(var(--navh,60px) + 130px)}
 
 <script src="msal-browser.min.js"></script>
 <script src="xlsx-lite.js"></script>
+<script src="jspdf.umd.min.js"></script>
+<script src="jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ============ Version ============ */
-const APP_VERSION = '1.0';
-const APP_DATE = '09/10/2026';
+const APP_VERSION = '1.2';
+const APP_DATE = '12/10/2026';
 
 /* ============ Données ============ */
 const KEY = 'batteriesVE_v1';
@@ -127,7 +129,7 @@ const CAPS = [7, 17, 18, 24, 36];
 const defaults = () => ({
   sites: [],      // {id, name}
   ves: [],        // {id, siteId, start, end, closed, coffrets:[...], carnet, carnetEdited}
-  settings: {ageYears: 4, warnMonths: 6, odClientId: '850f4eca-b80e-4b18-aa2a-33d7855f04bf'}, // appli « BATTERIES VE » chez Microsoft (non secret)
+  settings: {ageYears: 4, warnMonths: 6, tech: '', odClientId: '850f4eca-b80e-4b18-aa2a-33d7855f04bf'}, // appli « BATTERIES VE » chez Microsoft (non secret)
   lastBackup: 0
 });
 function load(){
@@ -283,6 +285,7 @@ function renderVe(ve){
         <button class="btn" onclick="showRecap('${ve.id}')">📋 Récap</button>
         <button class="btn" onclick="showCarnet('${ve.id}')">📒 Carnet</button>
       </div>
+      <button class="btn primary block" onclick="makePdf('${ve.id}')">📄 Rapport PDF</button>
     </div>
     <h2>Coffrets</h2>
     ${n ? ve.coffrets.map((c, i) => coffretCard(ve, c, i)).join('') : '<div class="card empty">Aucun coffret.<br>Appuie sur <b>+</b> pour ajouter le premier.</div>'}
@@ -423,19 +426,21 @@ function showRecap(id){
     <button class="btn block" onclick="closeSheet()">Fermer</button>`);
 }
 function carnetAuto(ve){
-  const n = ve.coffrets.length, nA = ve.coffrets.filter(c => c.type !== 'ca').length, nC = n - nA;
-  const types = [nA ? `${nA} alarme` : '', nC ? `${nC} contrôle d'accès` : ''].filter(Boolean).join(', ');
+  // Version courte (2 lignes max) : le détail est dans le récap et le rapport PDF
+  const n = ve.coffrets.length;
+  const d1 = new Date(ve.start), d2 = ve.end ? new Date(ve.end) : null;
+  const dd = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+  const period = d2 && fmtDay(ve.end) !== fmtDay(ve.start) ? `${dd(d1)} au ${fmtDay(ve.end)}` : fmtDay(ve.start);
   const repl = [], todo = [];
   ve.coffrets.forEach(c => c.bats.forEach(b => {
-    if (b.replaced) repl.push(`${c.label || 'coffret'} (12V ${b.cap}Ah)`);
-    else if (batStatus(b) === 'bad') todo.push(`${c.label || 'coffret'} (12V ${b.cap}Ah, posée ${fmtPose(b.pose)})`);
+    if (b.replaced) repl.push(c.label || 'coffret');
+    else if (batStatus(b) === 'bad') todo.push(c.label || 'coffret');
   }));
-  const notes = ve.coffrets.filter(c => c.note).map(c => `${c.label || 'coffret'} : ${c.note}`);
-  let t = `VE du ${fmtDay(ve.start)}${ve.end && fmtDay(ve.end) !== fmtDay(ve.start) ? ' au ' + fmtDay(ve.end) : ''} : contrôle de ${n} coffret${n>1?'s':''}${types ? ' (' + types + ')' : ''}, relevé des tensions batteries et consommations.`;
-  if (repl.length) t += ` Remplacement batterie : ${repl.join(', ')}.`;
-  if (todo.length) t += ` Batterie${todo.length>1?'s':''} à remplacer : ${todo.join(', ')}.`;
+  const list = (arr, one, many) => arr.length === 1 ? `${one} : ${arr[0]}.` : arr.length === 2 ? `${many} : ${arr.join(', ')}.` : `${arr.length} ${many.toLowerCase()}.`;
+  let t = `VE du ${period} : ${n} coffret${n>1?'s':''} contrôlé${n>1?'s':''}, tensions et conso relevées.`;
+  if (repl.length) t += ' ' + list(repl, 'Batterie remplacée', 'Batteries remplacées');
+  if (todo.length) t += ' ' + list(todo, 'Batterie à remplacer', 'Batteries à remplacer');
   if (!repl.length && !todo.length) t += ' Batteries OK.';
-  if (notes.length) t += ` Remarques : ${notes.join(' ; ')}.`;
   return t;
 }
 let carnetVe = null;
@@ -443,11 +448,151 @@ function showCarnet(id){
   const ve = S.ves.find(v => v.id === id); carnetVe = ve;
   const text = ve.carnetEdited && ve.carnet ? ve.carnet : carnetAuto(ve);
   openSheet(`<h3>📒 Carnet de maintenance</h3>
-    <div class="sub" style="margin-bottom:8px">Texte court préparé à partir de tes saisies. Modifie-le si besoin, puis copie-le.</div>
-    <textarea id="carnetTxt" style="min-height:160px" oninput="carnetVe.carnet=this.value;carnetVe.carnetEdited=true;save()">${esc(text)}</textarea>
+    <div class="sub" style="margin-bottom:8px">Texte bref (2 lignes) préparé à partir de tes saisies. Modifie-le si besoin, puis copie-le.</div>
+    <textarea id="carnetTxt" style="min-height:90px" oninput="carnetVe.carnet=this.value;carnetVe.carnetEdited=true;save()">${esc(text)}</textarea>
     <button class="btn primary block" onclick="copyText($('carnetTxt').value,'📋 Texte du carnet copié')">📋 Copier</button>
     <button class="btn block" onclick="carnetVe.carnetEdited=false;carnetVe.carnet='';save();showCarnet(carnetVe.id)">🔄 Régénérer depuis les saisies</button>
+    <button class="btn ok block" onclick="makePdf(carnetVe.id)">📄 Générer le rapport PDF</button>
     <button class="btn block" onclick="closeSheet()">Fermer</button>`);
+}
+
+
+/* ============ Rapport PDF ============ */
+const TEAL = [15, 76, 92], STATE_COL = {bad: [214, 69, 69], warn: [217, 138, 0], ok: [31, 157, 85], unknown: [102, 118, 132], repl: [27, 111, 133]};
+const pdfSafe = t => String(t ?? '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/…/g, '...')
+  .replace(/[^\x20-\x7E -ÿ–—€\n]/g, '');   // jsPDF (polices standard) : alphabet latin uniquement
+function pdfName(ve){
+  const site = siteName(ve.siteId).replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 50);
+  const d = new Date(ve.end || ve.start);
+  return `Rapport VE - ${site} - ${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}.pdf`;
+}
+function buildPdf(ve){
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF({unit: 'mm', format: 'a4'});
+  const W = 210, M = 14, CW = W - 2 * M;
+  const bats = ve.coffrets.flatMap(c => c.bats.map(b => ({c, b, st: b.replaced ? 'repl' : batStatus(b)})));
+  const nBad = bats.filter(x => x.st === 'bad').length, nRepl = bats.filter(x => x.st === 'repl').length, nWarn = bats.filter(x => x.st === 'warn').length;
+
+  // En-tête
+  doc.setFillColor(...TEAL); doc.rect(0, 0, W, 28, 'F');
+  doc.setTextColor(255); doc.setFont('helvetica', 'bold'); doc.setFontSize(17);
+  doc.text(pdfSafe("Rapport de visite d'entretien"), M, 12);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+  doc.text(pdfSafe("Relevé des batteries – coffrets d'alarme et de contrôle d'accès"), M, 19.5);
+  doc.setFontSize(9); doc.text(pdfSafe(ve.closed ? 'VE clôturée' : 'VE en cours'), W - M, 12, {align: 'right'});
+
+  // Informations
+  let y = 38;
+  const info = [['Site', siteName(ve.siteId)],
+    ['Période', `du ${fmtDay(ve.start)}${ve.end ? ' au ' + fmtDay(ve.end) : ' (en cours)'}`],
+    ['Technicien', S.settings.tech || '—']];
+  info.forEach(([k, v]) => {
+    doc.setTextColor(102, 118, 132); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.text(pdfSafe(k), M, y);
+    doc.setTextColor(22, 33, 42); doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text(pdfSafe(v), M + 26, y);
+    y += 6.5;
+  });
+
+  // Résumé (4 cases)
+  y += 2;
+  const boxes = [['Coffrets', ve.coffrets.length, TEAL], ['Batteries', bats.length, TEAL],
+    ['À remplacer', nBad, nBad ? STATE_COL.bad : STATE_COL.ok], ['Remplacées', nRepl, STATE_COL.repl]];
+  const bw = (CW - 3 * 4) / 4;
+  boxes.forEach(([lab, val, col], i) => {
+    const x = M + i * (bw + 4);
+    doc.setDrawColor(...col); doc.setLineWidth(0.5); doc.roundedRect(x, y, bw, 17, 2, 2, 'S');
+    doc.setTextColor(...col); doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.text(String(val), x + bw / 2, y + 8.5, {align: 'center'});
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.text(pdfSafe(lab), x + bw / 2, y + 14, {align: 'center'});
+  });
+  y += 25;
+
+  const section = (title) => {
+    if (y > 260) { doc.addPage(); y = 20; }
+    doc.setTextColor(...TEAL); doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5); doc.text(pdfSafe(title), M, y);
+    doc.setDrawColor(...TEAL); doc.setLineWidth(0.4); doc.line(M, y + 1.8, W - M, y + 1.8); y += 6;
+  };
+  const table = (head, body, opts) => {
+    doc.autoTable(Object.assign({startY: y, head: [head.map(pdfSafe)], body: body.map(r => r.map(c => pdfSafe(c))), margin: {left: M, right: M},
+      theme: 'grid', styles: {font: 'helvetica', fontSize: 8.8, cellPadding: 1.8, textColor: [22, 33, 42], lineColor: [210, 218, 223], lineWidth: 0.2},
+      headStyles: {fillColor: TEAL, textColor: 255, fontStyle: 'bold', halign: 'center'},
+      alternateRowStyles: {fillColor: [243, 247, 248]}}, opts || {}));
+    y = doc.lastAutoTable.finalY + 9;
+  };
+
+  // 1. Mesures
+  section('1. Mesures par coffret');
+  if (ve.coffrets.length) table(['#', 'Coffret', 'Type', 'Localisation', 'Sous tension', 'Hors tension', 'Consommation'],
+    ve.coffrets.map((c, i) => [i + 1, c.label || 'Coffret ' + (i + 1), typeLabel(c.type), c.loc || '—',
+      num(c.vOn) !== null ? fmtNum(c.vOn) + ' V' : '—', num(c.vOff) !== null ? fmtNum(c.vOff) + ' V' : '—',
+      num(c.conso) !== null ? fmtNum(c.conso) + ' ' + c.unit : '—']),
+    {columnStyles: {0: {halign: 'center', cellWidth: 8}, 4: {halign: 'center'}, 5: {halign: 'center'}, 6: {halign: 'center'}}});
+  else { doc.setFont('helvetica', 'italic'); doc.setFontSize(10); doc.setTextColor(102, 118, 132); doc.text('Aucun coffret.', M, y); y += 9; }
+
+  // 2. Batteries
+  section('2. État des batteries 12 V');
+  const stLabel = {bad: 'À remplacer', warn: 'À prévoir', ok: 'OK', unknown: 'Date inconnue', repl: 'Remplacée'};
+  if (bats.length) table(['Coffret', 'Capacité', 'Date de pose', 'Âge', 'État'],
+    bats.map(x => [x.c.label || 'Coffret', x.b.cap + ' Ah', fmtPose(x.b.pose) + (x.b.replaced && x.b.oldPose ? ` (ancienne : ${fmtPose(x.b.oldPose)})` : ''),
+      x.b.pose ? ageText(ageMonths(x.b.pose)) : '—', stLabel[x.st]]),
+    {columnStyles: {1: {halign: 'center'}, 2: {halign: 'center'}, 3: {halign: 'center'}, 4: {halign: 'center', fontStyle: 'bold'}},
+     didParseCell: d => { if (d.section === 'body' && d.column.index === 4) d.cell.styles.textColor = STATE_COL[bats[d.row.index].st]; }});
+  doc.setFont('helvetica', 'italic'); doc.setFontSize(8.5); doc.setTextColor(102, 118, 132);
+  doc.text(pdfSafe(`Remplacement conseillé tous les ${S.settings.ageYears} ans.${nWarn ? ` ${nWarn} batterie${nWarn>1?'s':''} à prévoir dans les ${S.settings.warnMonths} prochains mois.` : ''}`), M, y - 5);
+  y += 1;
+
+  // 3. Remarques
+  const notes = ve.coffrets.filter(c => c.note);
+  if (notes.length) { section('3. Remarques'); table(['Coffret', 'Remarque'], notes.map(c => [c.label || 'Coffret', c.note]), {columnStyles: {0: {cellWidth: 50, fontStyle: 'bold'}}}); }
+
+  // 4. Carnet de maintenance
+  section(`${notes.length ? 4 : 3}. Carnet de maintenance`);
+  const carnet = pdfSafe(ve.carnetEdited && ve.carnet ? ve.carnet : carnetAuto(ve));
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(22, 33, 42);
+  const lines = doc.splitTextToSize(carnet, CW - 8), h = lines.length * 4.6 + 7;
+  if (y + h > 280) { doc.addPage(); y = 20; }
+  doc.setFillColor(243, 247, 248); doc.setDrawColor(210, 218, 223); doc.roundedRect(M, y - 2, CW, h, 2, 2, 'FD');
+  doc.text(lines, M + 4, y + 3.5); y += h + 6;
+
+  // Pied de page
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) {
+    doc.setPage(i); doc.setDrawColor(210, 218, 223); doc.setLineWidth(0.2); doc.line(M, 286, W - M, 286);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(102, 118, 132);
+    doc.text(pdfSafe(`${siteName(ve.siteId)} – généré le ${new Date().toLocaleString('fr-FR')}`), M, 291);
+    doc.text(`Page ${i} / ${n}`, W - M, 291, {align: 'right'});
+  }
+  return doc;
+}
+let lastPdf = null;
+function makePdf(id){
+  const ve = S.ves.find(v => v.id === id); if (!ve) return;
+  if (!window.jspdf) return toast('Module PDF indisponible : recharge l\'appli avec du réseau');
+  let blob;
+  try { blob = buildPdf(ve).output('blob'); } catch(e) { return toast('Erreur PDF : ' + e.message); }
+  const name = pdfName(ve);
+  lastPdf = {blob, name};
+  openSheet(`<h3>📄 Rapport PDF prêt</h3>
+    <div class="sub">${esc(name)}</div>
+    <button class="btn primary block" onclick="sharePdf()">📤 Partager (mail, WhatsApp, Drive…)</button>
+    <button class="btn block" onclick="download(lastPdf.name, lastPdf.blob, 'application/pdf')">⬇️ Télécharger sur le téléphone</button>
+    <button class="btn block" onclick="window.open(URL.createObjectURL(lastPdf.blob), '_blank')">👁️ Voir le rapport</button>
+    <div class="hint" id="pdfOd">${odReady() ? '☁️ Envoi d\'une copie sur OneDrive › Rapports…' : 'Connecte OneDrive dans les Réglages pour garder automatiquement une copie de chaque rapport.'}</div>
+    <button class="btn block" onclick="closeSheet()">Fermer</button>`);
+  if (odReady()) odSavePdf(blob, name);
+}
+async function sharePdf(){
+  if (!lastPdf) return;
+  const file = new File([lastPdf.blob], lastPdf.name, {type: 'application/pdf'});
+  try {
+    if (navigator.canShare && navigator.canShare({files: [file]})) return await navigator.share({files: [file], title: lastPdf.name});
+  } catch(e) { if (e.name === 'AbortError') return; }
+  download(lastPdf.name, lastPdf.blob, 'application/pdf'); toast('Partage indisponible : rapport téléchargé');
+}
+async function odSavePdf(blob, name){
+  try {
+    const token = await odToken();
+    await odPut(token, 'Rapports/' + name, blob, 'application/pdf');
+    if ($('pdfOd')) $('pdfOd').textContent = '☁️ Copie enregistrée sur OneDrive › Applications › BATTERIES VE › Rapports';
+  } catch(e) { if ($('pdfOd')) $('pdfOd').textContent = '☁️ Copie OneDrive impossible pour l\'instant : ' + odErrText(e); }
 }
 
 /* ============ Vue Batteries (tous sites) ============ */
@@ -484,6 +629,11 @@ function updateBadges(){
 /* ============ Réglages ============ */
 function renderSettings(){
   $('view').innerHTML = `
+    <h2>👷 Rapport PDF</h2>
+    <div class="card">
+      <label style="margin-top:0">Nom du technicien (affiché sur le rapport)</label>
+      <input id="sTech" value="${esc(S.settings.tech || '')}" placeholder="ex. Aeden Becher" onchange="S.settings.tech=this.value.trim();save();toast('Nom enregistré')">
+    </div>
     <h2>🔋 Alertes batteries</h2>
     <div class="card">
       <div class="grid2">
@@ -637,7 +787,7 @@ function odDirty(){
 }
 function odSchedule(ms){ clearTimeout(OD.timer); OD.timer = setTimeout(() => odSync(), ms); }
 async function odPut(token, name, body, type){
-  const r = await fetch(`${GRAPH}:/${encodeURIComponent(name)}:/content`, {method: 'PUT', headers: {Authorization: 'Bearer ' + token, 'Content-Type': type}, body});
+  const r = await fetch(`${GRAPH}:/${name.split('/').map(encodeURIComponent).join('/')}:/content`, {method: 'PUT', headers: {Authorization: 'Bearer ' + token, 'Content-Type': type}, body});
   if (!r.ok) throw new Error(`OneDrive a refusé ${name} (${r.status})`);
 }
 async function odSync(manual){
