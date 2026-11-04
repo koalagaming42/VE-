@@ -61,7 +61,9 @@ h2{font-size:17px;margin:14px 0 10px}
 .pill{display:inline-block;font-size:12px;font-weight:700;border-radius:8px;padding:3px 8px;margin:4px 4px 0 0}
 .pill.ok{background:#e3f4ea;color:#17703f}.pill.warn{background:#fff1d6;color:#8a5a00}.pill.bad{background:#fde8e8;color:var(--bad)}.pill.info{background:#e3eef2;color:var(--primary-2)}
 @media (prefers-color-scheme: dark){.pill.ok{background:#173a26;color:#7fd8a1}.pill.warn{background:#3a2c10;color:#f3c66b}.pill.bad{background:#3a1d1d;color:#ff8f8f}.pill.info{background:#1d2f38;color:#8fd0e2}}
-.meas{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:14px}
+.meas{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:14px}
+.meas .mlab{width:100%;font-size:12.5px;color:var(--muted);font-weight:600;margin-bottom:-2px}
+.mes .mlabel{font-weight:600}
 .meas span{background:var(--chip);border-radius:8px;padding:4px 8px}
 .bat{border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px}
 .unit{display:flex;gap:4px}
@@ -120,8 +122,8 @@ body.undo-on .toast{bottom:calc(var(--navh,60px) + 130px)}
 <script src="jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ============ Version ============ */
-const APP_VERSION = '1.2';
-const APP_DATE = '12/10/2026';
+const APP_VERSION = '1.3';
+const APP_DATE = '04/11/2026';
 
 /* ============ Données ============ */
 const KEY = 'batteriesVE_v1';
@@ -139,7 +141,19 @@ function load(){
   } catch(e){}
   return defaults();
 }
-let S = load();
+/* Plusieurs relevés par coffret : c.mes = [{id, label, vOn, vOff, conso, unit}] */
+const mid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);   // (uid n'est pas encore défini à ce stade)
+const newMes = (label, unit) => ({id: mid(), label: label || '', vOn: '', vOff: '', conso: '', unit: unit || 'mA'});
+function normalize(st){
+  (st.ves || []).forEach(ve => (ve.coffrets || []).forEach(c => {
+    if (!Array.isArray(c.mes)) {
+      c.mes = [{id: mid(), label: '', vOn: c.vOn || '', vOff: c.vOff || '', conso: c.conso || '', unit: c.unit || 'mA'}];
+    }
+    delete c.vOn; delete c.vOff; delete c.conso; delete c.unit;
+  }));
+  return st;
+}
+let S = normalize(load());
 function save(){
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){}
   updateBadges();
@@ -211,7 +225,9 @@ function veProgress(ve){
   const n = ve.coffrets.length, d = ve.coffrets.filter(c => coffretDone(c)).length;
   return {n, d};
 }
-const coffretDone = c => num(c.vOn) !== null && num(c.vOff) !== null && num(c.conso) !== null;
+const mesDone = m => num(m.vOn) !== null && num(m.vOff) !== null && num(m.conso) !== null;
+const coffretDone = c => c.mes.length > 0 && c.mes.every(mesDone);
+const mesName = (c, m, j) => m.label || (c.mes.length > 1 ? 'Relevé ' + (j + 1) : '');
 function veCard(ve){
   const {n, d} = veProgress(ve);
   const bad = ve.coffrets.reduce((s, c) => s + c.bats.filter(b => batStatus(b) === 'bad').length, 0);
@@ -256,7 +272,7 @@ function createVe(){
   // Reprise de la dernière VE du site
   const prev = S.ves.filter(v => v.siteId === site.id).sort((a,b) => b.start - a.start)[0];
   const coffrets = prev ? prev.coffrets.map(c => ({id: uid(), label: c.label, loc: c.loc, type: c.type,
-    bats: c.bats.map(b => ({id: uid(), cap: b.cap, pose: b.pose, replaced: false})), vOn: '', vOff: '', conso: '', unit: c.unit || 'mA', note: ''})) : [];
+    bats: c.bats.map(b => ({id: uid(), cap: b.cap, pose: b.pose, replaced: false})), mes: (c.mes && c.mes.length ? c.mes : [newMes()]).map(m => newMes(m.label, m.unit)), note: ''})) : [];
   const ve = {id: uid(), siteId: site.id, start, end: null, closed: false, coffrets, carnet: '', carnetEdited: false};
   S.ves.push(ve); save(); closeSheet(); go('ve', ve.id);
   toast(prev ? `${coffrets.length} coffret${coffrets.length>1?'s':''} repris de la VE du ${fmtDay(prev.start)}` : 'VE démarrée : ajoute tes coffrets avec +');
@@ -271,7 +287,7 @@ function coffretCard(ve, c, i){
       <div class="sub">${typeLabel(c.type)}${c.loc ? ' · ' + esc(c.loc) : ''}</div>
     </div><div style="font-size:22px;color:var(--muted)">›</div></div>
     <div>${c.bats.length ? c.bats.map(b => batPill(b) + (b.replaced ? '<span class="pill info">🔁 remplacée</span>' : '')).join('') : '<span class="pill info">aucune batterie</span>'}</div>
-    ${done || c.vOn || c.vOff || c.conso ? `<div class="meas"><span>⚡ ${fmtNum(c.vOn) || '–'} V</span><span>🔌 ${fmtNum(c.vOff) || '–'} V</span><span>➰ ${fmtNum(c.conso) || '–'} ${c.unit}</span></div>` : ''}
+    ${c.mes.filter(m => m.vOn || m.vOff || m.conso).length ? c.mes.map((m, j) => `<div class="meas">${mesName(c, m, j) ? `<b class="mlab">${esc(mesName(c, m, j))}</b>` : ''}<span>⚡ ${fmtNum(m.vOn) || '–'} V</span><span>🔌 ${fmtNum(m.vOff) || '–'} V</span><span>➰ ${fmtNum(m.conso) || '–'} ${m.unit}</span></div>`).join('') : ''}
     ${c.note ? `<div class="sub">📝 ${esc(c.note)}</div>` : ''}
   </div>`;
 }
@@ -331,7 +347,7 @@ let curC = null;
 const getC = () => { const ve = S.ves.find(v => v.id === curVe); return ve && ve.coffrets.find(c => c.id === curC); };
 function addCoffret(){
   const ve = S.ves.find(v => v.id === curVe); if (!ve) return;
-  const c = {id: uid(), label: '', loc: '', type: 'alarme', bats: [{id: uid(), cap: 17, pose: '', replaced: false}], vOn: '', vOff: '', conso: '', unit: 'mA', note: ''};
+  const c = {id: uid(), label: '', loc: '', type: 'alarme', bats: [{id: uid(), cap: 17, pose: '', replaced: false}], mes: [newMes()], note: ''};
   ve.coffrets.push(c); save(); render(); editCoffret(c.id, true);
 }
 function editCoffret(id, isNew){
@@ -347,15 +363,8 @@ function editCoffret(id, isNew){
     <button class="btn block small" onclick="addBat()">+ Ajouter une batterie</button>
 
     <label style="margin-top:14px">Mesures</label>
-    <div class="grid2">
-      <div><label style="margin-top:0">Sous tension (V)</label><input inputmode="decimal" value="${esc(fmtNum(c.vOn))}" placeholder="ex. 13,6" oninput="setC('vOn', this.value)"></div>
-      <div><label style="margin-top:0">Hors tension (V)</label><input inputmode="decimal" value="${esc(fmtNum(c.vOff))}" placeholder="ex. 12,7" oninput="setC('vOff', this.value)"></div>
-    </div>
-    <label>Consommation</label>
-    <div class="row">
-      <input class="grow" inputmode="decimal" value="${esc(fmtNum(c.conso))}" placeholder="ex. 450" oninput="setC('conso', this.value)">
-      <div class="unit">${['mA','A'].map(u => `<button class="chip ${c.unit===u?'on':''}" onclick="setC('unit','${u}');this.parentNode.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===this))">${u}</button>`).join('')}</div>
-    </div>
+    <div id="mesList">${mesListHtml(c)}</div>
+    <button class="btn block small" onclick="addMes()">+ Ajouter un relevé</button>
     <label>Remarque (facultatif)</label>
     <textarea style="min-height:60px" placeholder="ex. ventouse porte 3 à surveiller" oninput="setC('note', this.value)">${esc(c.note)}</textarea>
 
@@ -377,6 +386,32 @@ function batEditor(b, i){
     </div>
   </div>`;
 }
+function mesEditor(c, m, j){
+  return `<div class="bat mes">
+    <div class="row">
+      <input class="grow mlabel" value="${esc(m.label)}" placeholder="Relevé ${j+1} – ex. Batterie 1, Sortie ventouses" oninput="setM('${m.id}','label',this.value)">
+      ${c.mes.length > 1 ? `<button class="btn small" onclick="delMes('${m.id}')" aria-label="Supprimer ce relevé">✕</button>` : ''}
+    </div>
+    <div class="grid2" style="margin-top:6px">
+      <div><label style="margin-top:0">Sous tension (V)</label><input inputmode="decimal" value="${esc(fmtNum(m.vOn))}" placeholder="ex. 13,6" oninput="setM('${m.id}','vOn',this.value)"></div>
+      <div><label style="margin-top:0">Hors tension (V)</label><input inputmode="decimal" value="${esc(fmtNum(m.vOff))}" placeholder="ex. 12,7" oninput="setM('${m.id}','vOff',this.value)"></div>
+    </div>
+    <label>Consommation</label>
+    <div class="row">
+      <input class="grow" inputmode="decimal" value="${esc(fmtNum(m.conso))}" placeholder="ex. 450" oninput="setM('${m.id}','conso',this.value)">
+      <div class="unit">${['mA','A'].map(u => `<button class="chip ${m.unit===u?'on':''}" onclick="setM('${m.id}','unit','${u}');this.parentNode.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===this))">${u}</button>`).join('')}</div>
+    </div>
+  </div>`;
+}
+const mesListHtml = c => c.mes.map((m, j) => mesEditor(c, m, j)).join('');
+function refreshMes(){ const c = getC(); if (c && $('mesList')) $('mesList').innerHTML = mesListHtml(c); }
+function setM(id, k, v){ const m = getC().mes.find(x => x.id === id); if (!m) return; m[k] = v; save(); }
+function addMes(){
+  const c = getC(); const last = c.mes[c.mes.length - 1];
+  c.mes.push(newMes('', last ? last.unit : 'mA')); save(); refreshMes();
+  const ins = $('mesList').querySelectorAll('.mlabel'); if (ins.length) ins[ins.length - 1].focus();
+}
+function delMes(id){ const c = getC(); if (c.mes.length < 2) return; snapshot(); c.mes = c.mes.filter(m => m.id !== id); save(); refreshMes(); offerUndo('Relevé supprimé'); }
 function setC(k, v){ const c = getC(); if (!c) return; c[k] = v; save(); }
 function refreshBats(){ const c = getC(); if (c && $('batList')) $('batList').innerHTML = c.bats.map((b, i) => batEditor(b, i)).join(''); }
 function setBat(id, k, v){ const b = getC().bats.find(x => x.id === id); b[k] = v; save(); refreshBats(); }
@@ -402,7 +437,7 @@ function batLine(b){
 function coffretText(c, i){
   return `[${i+1}] ${c.label || 'Coffret ' + (i+1)} – ${typeLabel(c.type)}${c.loc ? ' – ' + c.loc : ''}\n`
     + `Batterie${c.bats.length>1?'s':''} : ${c.bats.length ? c.bats.map(batLine).join(' + ') : 'aucune'}\n`
-    + `Sous tension : ${fmtNum(c.vOn) || '–'} V | Hors tension : ${fmtNum(c.vOff) || '–'} V | Conso : ${fmtNum(c.conso) || '–'} ${c.unit}`
+    + c.mes.map((m, j) => (mesName(c, m, j) ? mesName(c, m, j) + ' – ' : '') + `Sous tension : ${fmtNum(m.vOn) || '–'} V | Hors tension : ${fmtNum(m.vOff) || '–'} V | Conso : ${fmtNum(m.conso) || '–'} ${m.unit}`).join('\n')
     + (c.note ? `\nRemarque : ${c.note}` : '');
 }
 function recapText(ve){
@@ -511,7 +546,7 @@ function buildPdf(ve){
     doc.setDrawColor(...TEAL); doc.setLineWidth(0.4); doc.line(M, y + 1.8, W - M, y + 1.8); y += 6;
   };
   const table = (head, body, opts) => {
-    doc.autoTable(Object.assign({startY: y, head: [head.map(pdfSafe)], body: body.map(r => r.map(c => pdfSafe(c))), margin: {left: M, right: M},
+    doc.autoTable(Object.assign({startY: y, head: [head.map(pdfSafe)], body: body.map(r => r.map(c => c && typeof c === 'object' ? Object.assign({}, c, {content: pdfSafe(c.content)}) : pdfSafe(c))), margin: {left: M, right: M},
       theme: 'grid', styles: {font: 'helvetica', fontSize: 8.8, cellPadding: 1.8, textColor: [22, 33, 42], lineColor: [210, 218, 223], lineWidth: 0.2},
       headStyles: {fillColor: TEAL, textColor: 255, fontStyle: 'bold', halign: 'center'},
       alternateRowStyles: {fillColor: [243, 247, 248]}}, opts || {}));
@@ -520,11 +555,22 @@ function buildPdf(ve){
 
   // 1. Mesures
   section('1. Mesures par coffret');
-  if (ve.coffrets.length) table(['#', 'Coffret', 'Type', 'Localisation', 'Sous tension', 'Hors tension', 'Consommation'],
-    ve.coffrets.map((c, i) => [i + 1, c.label || 'Coffret ' + (i + 1), typeLabel(c.type), c.loc || '—',
-      num(c.vOn) !== null ? fmtNum(c.vOn) + ' V' : '—', num(c.vOff) !== null ? fmtNum(c.vOff) + ' V' : '—',
-      num(c.conso) !== null ? fmtNum(c.conso) + ' ' + c.unit : '—']),
-    {columnStyles: {0: {halign: 'center', cellWidth: 8}, 4: {halign: 'center'}, 5: {halign: 'center'}, 6: {halign: 'center'}}});
+  if (ve.coffrets.length) {
+    const rows = [];
+    ve.coffrets.forEach((c, i) => {
+      const ms = c.mes.length ? c.mes : [newMes()], span = ms.length;
+      ms.forEach((m, j) => {
+        const r = [];
+        if (j === 0) r.push({content: String(i + 1), rowSpan: span}, {content: (c.label || 'Coffret ' + (i + 1)) + '\n' + typeLabel(c.type), rowSpan: span}, {content: c.loc || '—', rowSpan: span});
+        r.push(mesName(c, m, j) || '—', num(m.vOn) !== null ? fmtNum(m.vOn) + ' V' : '—', num(m.vOff) !== null ? fmtNum(m.vOff) + ' V' : '—',
+          num(m.conso) !== null ? fmtNum(m.conso) + ' ' + m.unit : '—');
+        rows.push(r);
+      });
+    });
+    table(['#', 'Coffret', 'Localisation', 'Relevé', 'Sous tension', 'Hors tension', 'Conso'], rows,
+      {alternateRowStyles: {}, styles: {font: 'helvetica', fontSize: 8.6, cellPadding: 1.8, textColor: [22, 33, 42], lineColor: [210, 218, 223], lineWidth: 0.2, valign: 'middle'},
+       columnStyles: {0: {halign: 'center', cellWidth: 8}, 1: {fontStyle: 'bold', cellWidth: 40}, 2: {cellWidth: 32}, 4: {halign: 'center', cellWidth: 21}, 5: {halign: 'center', cellWidth: 21}, 6: {halign: 'center', cellWidth: 20}}});
+  }
   else { doc.setFont('helvetica', 'italic'); doc.setFontSize(10); doc.setTextColor(102, 118, 132); doc.text('Aucun coffret.', M, y); y += 9; }
 
   // 2. Batteries
@@ -670,7 +716,7 @@ function importData(file){
   r.onload = () => {
     try { const d = JSON.parse(r.result); if (!Array.isArray(d.ves)) throw 0;
       if (!confirm(`Remplacer les données actuelles par cette sauvegarde (${d.ves.length} VE) ?`)) return;
-      snapshot(); S = Object.assign(defaults(), d, {settings: Object.assign(defaults().settings, d.settings || {})}); save(); render(); offerUndo('Sauvegarde importée'); }
+      snapshot(); S = normalize(Object.assign(defaults(), d, {settings: Object.assign(defaults().settings, d.settings || {})})); save(); render(); offerUndo('Sauvegarde importée'); }
     catch(e){ toast('Fichier de sauvegarde invalide'); }
   };
   r.readAsText(file);
@@ -684,14 +730,14 @@ function resetAll(){
 function buildXlsx(){
   const bats = allBatteries();
   const mes = [];
-  S.ves.slice().sort((a,b) => b.start - a.start).forEach(ve => ve.coffrets.forEach(c => mes.push({ve, c})));
+  S.ves.slice().sort((a,b) => b.start - a.start).forEach(ve => ve.coffrets.forEach(c => (c.mes.length ? c.mes : [newMes()]).forEach((m, j) => mes.push({ve, c, m, j}))));
   return XlsxLite.tablesWorkbook([
     {name: 'Batteries', headers: ['Site', 'Coffret', 'Localisation', 'Type', 'Capacité (Ah)', 'Date de pose', 'Âge', 'Statut'],
      rows: bats.map(x => [x.site.name, x.c.label, x.c.loc, typeLabel(x.c.type), x.b.cap, fmtPose(x.b.pose), x.b.pose ? ageText(x.mo) : '', {bad:'À remplacer', warn:'À prévoir', ok:'OK', unknown:'Date inconnue'}[x.st]]),
      red: bats.map(x => x.st === 'bad'), center: [4, 5, 6, 7], widths: [28, 26, 26, 16, 12, 12, 14, 14]},
-    {name: 'Mesures', headers: ['Début VE', 'Fin VE', 'Site', 'Coffret', 'Type', 'Sous tension (V)', 'Hors tension (V)', 'Conso', 'Unité', 'Batteries', 'Remarque'],
-     rows: mes.map(({ve, c}) => [fmtDay(ve.start), fmtDay(ve.end), siteName(ve.siteId), c.label, typeLabel(c.type), num(c.vOn) ?? '', num(c.vOff) ?? '', num(c.conso) ?? '', c.unit, c.bats.map(b => `${b.cap}Ah ${fmtPose(b.pose)}${b.replaced ? ' (remplacée)' : ''}`).join(' + '), c.note || '']),
-     center: [0, 1, 5, 6, 7, 8], widths: [12, 12, 26, 26, 16, 15, 15, 10, 7, 34, 34]},
+    {name: 'Mesures', headers: ['Début VE', 'Fin VE', 'Site', 'Coffret', 'Relevé', 'Type', 'Sous tension (V)', 'Hors tension (V)', 'Conso', 'Unité', 'Batteries', 'Remarque'],
+     rows: mes.map(({ve, c, m, j}) => [fmtDay(ve.start), fmtDay(ve.end), siteName(ve.siteId), c.label, mesName(c, m, j), typeLabel(c.type), num(m.vOn) ?? '', num(m.vOff) ?? '', num(m.conso) ?? '', m.unit, c.bats.map(b => `${b.cap}Ah ${fmtPose(b.pose)}${b.replaced ? ' (remplacée)' : ''}`).join(' + '), c.note || '']),
+     center: [0, 1, 6, 7, 8, 9], widths: [12, 12, 26, 26, 20, 16, 15, 15, 10, 7, 34, 34]},
     {name: 'Carnet', headers: ['Site', 'Début', 'Fin', 'Statut', 'Coffrets', 'Texte du carnet'],
      rows: S.ves.slice().sort((a,b) => b.start - a.start).map(ve => [siteName(ve.siteId), fmtDay(ve.start), fmtDay(ve.end), ve.closed ? 'Clôturée' : 'En cours', ve.coffrets.length, ve.carnetEdited && ve.carnet ? ve.carnet : carnetAuto(ve)]),
      center: [1, 2, 3, 4], widths: [26, 12, 12, 11, 9, 100]}
@@ -828,7 +874,7 @@ async function odRestore(auto){
     if (!best) return auto || toast('Aucune sauvegarde avec des VE sur OneDrive');
     snapshot();
     const d = best.d; delete d.exportedAt;
-    S = Object.assign(defaults(), d, {settings: Object.assign(defaults().settings, d.settings || {}, {odClientId: odClientId() || (d.settings || {}).odClientId})});
+    S = normalize(Object.assign(defaults(), d, {settings: Object.assign(defaults().settings, d.settings || {}, {odClientId: odClientId() || (d.settings || {}).odClientId})}));
     save(); render(); offerUndo(`📥 ${S.ves.length} VE récupérée${S.ves.length>1?'s':''} depuis OneDrive`);
   } catch(e) { toast('Récupération impossible : ' + odErrText(e)); }
 }
