@@ -120,14 +120,14 @@ body.undo-on .toast{bottom:calc(var(--navh,60px) + 130px)}
 <script src="jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ============ Version ============ */
-const APP_VERSION = '1.4';
+const APP_VERSION = '1.5';
 const APP_DATE = '16/11/2026';
 
 /* ============ Données ============ */
 const KEY = 'batteriesVE_v1';
 const CAPS = [2.1, 7, 17, 18, 24, 36];
 // Capacité affichée à la française : 2.1 → « 2,1 »
-const fmtCap = c => String(c ?? '').replace('.', ',');
+const fmtCap = c => (c === null || c === undefined || c === '') ? '?' : String(c).replace('.', ',');
 const defaults = () => ({
   sites: [],      // {id, name}
   ves: [],        // {id, siteId, start, end, closed, coffrets:[...], carnet, carnetEdited}
@@ -213,7 +213,16 @@ function veProgress(ve){
   const n = ve.coffrets.length, d = ve.coffrets.filter(c => coffretDone(c)).length;
   return {n, d};
 }
-const coffretDone = c => num(c.vOn) !== null && num(c.vOff) !== null && num(c.conso) !== null;
+function coffretMissing(c){
+  const m = [];
+  if (!c.bats.length) m.push('batterie');
+  else if (c.bats.some(b => !(b.cap > 0))) m.push('capacité batterie');
+  if (num(c.vOn) === null) m.push('sous tension');
+  if (num(c.vOff) === null) m.push('hors tension');
+  if (num(c.conso) === null) m.push('conso');
+  return m;
+}
+const coffretDone = c => !coffretMissing(c).length;
 function veCard(ve){
   const {n, d} = veProgress(ve);
   const bad = ve.coffrets.reduce((s, c) => s + c.bats.filter(b => batStatus(b) === 'bad').length, 0);
@@ -271,6 +280,7 @@ function coffretCard(ve, c, i){
     <div class="row"><div class="grow">
       <div class="name">${typeIcon(c.type)} ${esc(c.label || 'Coffret ' + (i+1))} ${done ? '<span class="pill ok">relevé ✓</span>' : '<span class="pill warn">à relever</span>'}</div>
       <div class="sub">${typeLabel(c.type)}${c.loc ? ' · ' + esc(c.loc) : ''}</div>
+      ${done ? '' : `<div class="sub" style="color:var(--warn);font-weight:600">Manque : ${coffretMissing(c).join(', ')}</div>`}
     </div><div style="font-size:22px;color:var(--muted)">›</div></div>
     <div>${c.bats.length ? c.bats.map(b => batPill(b) + (b.replaced ? '<span class="pill info">🔁 remplacée</span>' : '')).join('') : '<span class="pill info">aucune batterie</span>'}</div>
     ${done || c.vOn || c.vOff || c.conso ? `<div class="meas"><span>⚡ ${fmtNum(c.vOn) || '–'} V</span><span>🔌 ${fmtNum(c.vOff) || '–'} V</span><span>➰ ${fmtNum(c.conso) || '–'} ${c.unit}</span></div>` : ''}
@@ -333,7 +343,7 @@ let curC = null;
 const getC = () => { const ve = S.ves.find(v => v.id === curVe); return ve && ve.coffrets.find(c => c.id === curC); };
 function addCoffret(){
   const ve = S.ves.find(v => v.id === curVe); if (!ve) return;
-  const c = {id: uid(), label: '', loc: '', type: 'alarme', bats: [{id: uid(), cap: 17, pose: '', replaced: false}], vOn: '', vOff: '', conso: '', unit: 'mA', note: ''};
+  const c = {id: uid(), label: '', loc: '', type: 'alarme', bats: [{id: uid(), cap: null, pose: '', replaced: false}], vOn: '', vOff: '', conso: '', unit: 'mA', note: ''};
   ve.coffrets.push(c); save(); render(); editCoffret(c.id, true);
 }
 function editCoffret(id, isNew){
@@ -372,8 +382,8 @@ function batEditor(b, i){
       <button class="btn small" onclick="delBat('${b.id}')" aria-label="Supprimer">✕</button></div>
     <div class="chips" style="margin-top:6px">${CAPS.map(cap => `<button class="chip ${b.cap===cap?'on':''}" onclick="setBat('${b.id}','cap',${cap})">${fmtCap(cap)} Ah</button>`).join('')}</div>
     <div class="row" style="margin-top:8px">
-      <span class="sub" style="margin:0;white-space:nowrap">Autre :</span>
-      <input class="grow" inputmode="decimal" placeholder="ex. 12 ou 4,5" value="${CAPS.includes(b.cap) ? '' : esc(fmtCap(b.cap))}" onchange="setCustomCap('${b.id}', this.value)" style="padding:8px">
+      <span class="sub" style="margin:0;white-space:nowrap">Capacité :</span>
+      <input class="grow" inputmode="decimal" placeholder="à saisir (ex. 4,5)" value="${b.cap > 0 ? esc(fmtCap(b.cap)) : ''}" onchange="setCustomCap('${b.id}', this.value)" style="padding:8px;${b.cap > 0 ? '' : 'border-color:var(--warn)'}">
       <span class="sub" style="margin:0">Ah</span>
     </div>
     <label>Date de pose</label>
@@ -385,15 +395,20 @@ function batEditor(b, i){
   </div>`;
 }
 function setC(k, v){ const c = getC(); if (!c) return; c[k] = v; save(); }
-function refreshBats(){ const c = getC(); if (c && $('batList')) $('batList').innerHTML = c.bats.map((b, i) => batEditor(b, i)).join(''); }
+// Rafraîchit la liste des batteries juste après l'événement en cours (évite les conflits quand on quitte une case)
+let batRefresh = null;
+function refreshBats(){
+  clearTimeout(batRefresh);
+  batRefresh = setTimeout(() => { const c = getC(); if (c && $('batList')) $('batList').innerHTML = c.bats.map((b, i) => batEditor(b, i)).join(''); }, 0);
+}
 function setBat(id, k, v){ const b = getC().bats.find(x => x.id === id); b[k] = v; save(); refreshBats(); }
 function setCustomCap(id, v){
   const n = num(v);
-  if (n === null) { if (String(v).trim()) toast('Capacité invalide'); refreshBats(); return; }
+  if (n === null) { if (String(v).trim()) { toast('Capacité invalide'); refreshBats(); } else setBat(id, 'cap', null); return; }
   if (n <= 0 || n > 500) { toast('Capacité invalide (entre 0 et 500 Ah)'); refreshBats(); return; }
   setBat(id, 'cap', Math.round(n * 10) / 10);
 }
-function addBat(){ const c = getC(); const last = c.bats[c.bats.length - 1]; c.bats.push({id: uid(), cap: last ? last.cap : 17, pose: last ? last.pose : '', replaced: false}); save(); refreshBats(); }
+function addBat(){ const c = getC(); const last = c.bats[c.bats.length - 1]; c.bats.push({id: uid(), cap: null, pose: '', replaced: false}); save(); refreshBats(); }
 function delBat(id){ const c = getC(); snapshot(); c.bats = c.bats.filter(b => b.id !== id); save(); refreshBats(); offerUndo('Batterie supprimée'); }
 function replaceBat(id){
   const b = getC().bats.find(x => x.id === id);
