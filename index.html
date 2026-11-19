@@ -167,7 +167,7 @@ details.sec[open]{padding-bottom:12px}
 <div class="toast" id="toast"></div>
 <div class="undobar" id="undoBar"><span id="undoMsg"></span><button onclick="undo()">↩️ Annuler</button></div>
 <input type="file" id="impTpl" accept=".pdf,application/pdf" multiple hidden onchange="importTpl([...this.files]);this.value=''">
-<input type="file" id="impJson" accept=".json,application/json" hidden onchange="importData(this.files[0]);this.value=''">
+<input type="file" id="impJson" accept=".json,application/json,text/plain,application/octet-stream" hidden onchange="importData(this.files[0]);this.value=''">
 
 <script src="msal-browser.min.js"></script>
 <script src="xlsx-lite.js"></script>
@@ -175,7 +175,7 @@ details.sec[open]{padding-bottom:12px}
 <script src="jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ============ Version ============ */
-const APP_VERSION = '2.2';
+const APP_VERSION = '2.3';
 const APP_DATE = '19/11/2026';
 
 /* ============ Données ============ */
@@ -1689,13 +1689,20 @@ function renderSettings(){
       <button class="btn primary block" onclick="saveSettings()">Enregistrer</button>
     </div>
     <h2>☁️ OneDrive (sauvegarde)</h2>
+    <div class="card">
+      <div class="sub">Envoie la sauvegarde (.json) où tu veux : choisis <b>OneDrive</b> dans la liste, puis ton compte <b>pro ou perso</b> et le dossier.</div>
+      <div class="sub">Dernière sauvegarde envoyée : <b>${S.lastBackup ? fmtDate(S.lastBackup) : 'jamais'}</b></div>
+      <button class="btn primary block" onclick="shareBackup()">☁️ Enregistrer la sauvegarde dans OneDrive…</button>
+      <button class="btn block" onclick="$('impJson').click()">📥 Reprendre une sauvegarde (depuis OneDrive…)</button>
+      <div class="hint">Pour reprendre : dans la fenêtre qui s'ouvre, touche <b>☰</b> (ou « Parcourir »), choisis <b>OneDrive</b>, puis le fichier <b>batteries-ve_….json</b>. Il faut l'appli OneDrive installée sur le téléphone. Les fiches VCE et ta signature ne sont jamais dans la sauvegarde.</div>
+    </div>
+    <h2>🔗 Synchro automatique OneDrive (compte perso)</h2>
     <div class="card" id="odCard">${odSettingsHtml()}</div>
     <h2>Sauvegarde & export</h2>
     <div class="card">
       <div class="sub">Dernière sauvegarde manuelle : <b>${S.lastBackup ? fmtDate(S.lastBackup) : 'jamais'}</b></div>
       <button class="btn block" onclick="exportXlsx()">📊 Exporter en Excel</button>
-      <button class="btn block" onclick="exportData()">⬇️ Exporter une sauvegarde</button>
-      <button class="btn block" onclick="$('impJson').click()">⬆️ Importer une sauvegarde</button>
+      <button class="btn block" onclick="exportData()">⬇️ Télécharger une sauvegarde sur le téléphone</button>
     </div>
     <div class="card"><button class="btn danger block" onclick="resetAll()">Tout effacer</button></div>
     <div class="sub center" style="margin:14px 0 4px">🔋 Batteries VE · <b>version ${APP_VERSION}</b> du ${APP_DATE}</div>`;
@@ -1713,6 +1720,21 @@ function saveSettings(){
 function download(name, content, type){
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([content], {type}));
   a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+// Sauvegarde .json envoyée via le menu « Partager » du téléphone : OneDrive (pro ou perso), Drive, Fichiers…
+async function shareBackup(){
+  if (isEmpty()) return toast('Rien à sauvegarder : aucune donnée sur ce téléphone');
+  const name = `batteries-ve_${stamp(new Date())}.json`, json = JSON.stringify(Object.assign({}, S, {exportedAt: new Date().toISOString()}), null, 1);
+  const file = new File([json], name, {type: 'application/json'});
+  const done = () => { S.lastBackup = Date.now(); save(); render(); };
+  try {
+    if (navigator.canShare && navigator.share && navigator.canShare({files: [file]})) {
+      await navigator.share({files: [file], title: name});
+      done(); toast('✅ Sauvegarde envoyée'); return;
+    }
+  } catch(e){ if (e.name === 'AbortError') return; }
+  download(name, json, 'application/json'); done();
+  toast('Sauvegarde téléchargée : ouvre l\'appli OneDrive › + › Importer pour la ranger');
 }
 function exportData(){ S.lastBackup = Date.now(); save(); render(); download(`batteries-ve-${new Date().toISOString().slice(0,10)}.json`, JSON.stringify(S, null, 1), 'application/json'); }
 function importData(file){
