@@ -150,7 +150,7 @@ details.sec[open]{padding-bottom:12px}
   <h1 id="title">🔋 Batteries VE</h1>
   <button class="hbtn" id="odBadge" onclick="go('settings')" aria-label="OneDrive" hidden>☁️<span class="oddot" id="odDot"></span></button>
   <div class="odbar" id="odBar" hidden><span>☁️</span><div class="grow" id="odBarMsg">Modifications pas encore sauvegardées sur OneDrive</div>
-    <button class="yes" onclick="odSync(true)">Sauvegarder</button><button class="no" onclick="odLater()">Plus tard</button></div>
+    <button class="yes" onclick="bannerSave()">Sauvegarder</button><button class="no" onclick="odLater()">Plus tard</button></div>
 </header>
 
 <main id="view"></main>
@@ -175,7 +175,7 @@ details.sec[open]{padding-bottom:12px}
 <script src="jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ============ Version ============ */
-const APP_VERSION = '2.3';
+const APP_VERSION = '2.5';
 const APP_DATE = '19/11/2026';
 
 /* ============ Données ============ */
@@ -204,9 +204,14 @@ try { S.ves.forEach(v => v.coffrets.sort((a, b) => (!a.label - !b.label) || Stri
 const cmpTxt = (a, b) => a.localeCompare(b, 'fr', {numeric: true, sensitivity: 'base'});
 const cmpCoffret = (a, b) => (!a.label - !b.label) || cmpTxt(a.label || '', b.label || '') || cmpTxt(a.loc || '', b.loc || '');
 function sortCoffrets(){ S.ves.forEach(v => v.coffrets.sort(cmpCoffret)); }
+const BKKEY = 'batteriesVE_sauvegarde';
+let BK = (() => { try { return JSON.parse(localStorage.getItem(BKKEY)) || {}; } catch(e){ return {}; } })();
+const saveBK = () => { try { localStorage.setItem(BKKEY, JSON.stringify(BK)); } catch(e){} };
+let quietSave = false;
 function save(){
   sortCoffrets();
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){}
+  if (!quietSave && S.ves.length + S.sites.length) { BK.dirty = true; BK.later = false; saveBK(); }
   updateBadges();
   try { odDirty(); } catch(e){}
 }
@@ -1690,7 +1695,7 @@ function renderSettings(){
     </div>
     <h2>☁️ OneDrive (sauvegarde)</h2>
     <div class="card">
-      <div class="sub">Envoie la sauvegarde (.json) où tu veux : choisis <b>OneDrive</b> dans la liste, puis ton compte <b>pro ou perso</b> et le dossier.</div>
+      <div class="sub">Touche le bouton → menu Partager → <b>OneDrive</b> → ton compte <b>pro ou perso</b> → le dossier (ex. « Batteries VE ») → Enregistrer.<br>Le petit nuage en haut est <b>orange</b> s'il y a des modifications pas encore sauvegardées, <b>vert</b> après la sauvegarde.</div>
       <div class="sub">Dernière sauvegarde envoyée : <b>${S.lastBackup ? fmtDate(S.lastBackup) : 'jamais'}</b></div>
       <button class="btn primary block" onclick="shareBackup()">☁️ Enregistrer la sauvegarde dans OneDrive…</button>
       <button class="btn block" onclick="$('impJson').click()">📥 Reprendre une sauvegarde (depuis OneDrive…)</button>
@@ -1724,9 +1729,9 @@ function download(name, content, type){
 // Sauvegarde .json envoyée via le menu « Partager » du téléphone : OneDrive (pro ou perso), Drive, Fichiers…
 async function shareBackup(){
   if (isEmpty()) return toast('Rien à sauvegarder : aucune donnée sur ce téléphone');
-  const name = `batteries-ve_${stamp(new Date())}.json`, json = JSON.stringify(Object.assign({}, S, {exportedAt: new Date().toISOString()}), null, 1);
+  const name = `batteries-ve ${stamp(new Date()).replace('_', ' ')}.json`, json = JSON.stringify(Object.assign({}, S, {exportedAt: new Date().toISOString()}), null, 1);
   const file = new File([json], name, {type: 'application/json'});
-  const done = () => { S.lastBackup = Date.now(); save(); render(); };
+  const done = () => { S.lastBackup = Date.now(); quietSave = true; save(); quietSave = false; backupDone(); render(); };
   try {
     if (navigator.canShare && navigator.share && navigator.canShare({files: [file]})) {
       await navigator.share({files: [file], title: name});
@@ -1847,11 +1852,15 @@ async function odToken(){
   catch(e) { if (e instanceof msal.InteractionRequiredAuthError) odSet('err', 'Session expirée : appuie sur « Se reconnecter ».', true); throw e; }
 }
 function odSet(state, msg, needLogin){ OD.state = state; OD.msg = msg || ''; OD.needLogin = !!needLogin; odUi(); }
-function odLater(){ odMeta.later = true; odSaveMeta(); odUi(); toast('OK, je te redemanderai à la prochaine modification'); }
+function odLater(){ odMeta.later = true; odSaveMeta(); BK.later = true; saveBK(); odUi(); toast('OK, je te redemanderai à la prochaine modification'); }
+// Bandeau : connecté à Microsoft → envoi direct ; sinon → menu Partager (OneDrive, compte pro ou perso, dossier), comme Mon Coffre
+function bannerSave(){ odReady() ? odSync(true) : shareBackup(); }
+function backupDone(){ BK.dirty = false; BK.later = false; BK.last = Date.now(); saveBK(); odUi(); }
 function odUi(){
   const bar = $('odBar');
   if (bar) {
-    const show = odReady() && !odMeta.auto && !isEmpty() && ((odMeta.pending && !odMeta.later) || OD.state === 'busy' || OD.state === 'err');
+    const g = odReady();
+    const show = false; // pas de bandeau : la sauvegarde se fait avec la touche dans Réglages
     bar.hidden = !show;
     if (show) {
       $('odBarMsg').textContent = OD.state === 'busy' ? 'Sauvegarde en cours…' : OD.state === 'err' ? 'Sauvegarde OneDrive échouée : ' + (OD.msg || 'réessaie') : 'Modifications pas encore sauvegardées sur OneDrive';
@@ -1859,7 +1868,7 @@ function odUi(){
     }
   }
   const b = $('odBadge'), d = $('odDot');
-  if (b) { b.hidden = !odClientId(); d.className = 'oddot ' + ({ok:'ok', wait:'wait', busy:'wait', err:'err'}[OD.state] || ''); }
+  if (b) { b.hidden = false; d.className = 'oddot ' + (odReady() ? ({ok:'ok', wait:'wait', busy:'wait', err:'err'}[OD.state] || '') : (BK.dirty ? 'wait' : BK.last ? 'ok' : '')); }
   if ($('odCard')) $('odCard').innerHTML = odSettingsHtml();
 }
 function odDirty(){
@@ -1884,7 +1893,7 @@ async function odSync(manual){
     const token = await odToken();
     await odPut(token, 'batteries-ve.json', JSON.stringify(Object.assign({}, S, {exportedAt: new Date().toISOString()}), null, 1), 'application/json');
     await odPut(token, 'batteries-ve.xlsx', buildXlsx(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    odMeta.pending = OD.again; odMeta.last = Date.now(); odSaveMeta();
+    odMeta.pending = OD.again; odMeta.last = Date.now(); odSaveMeta(); if (!OD.again) backupDone();
     if (!odMeta.lastBackup || new Date(odMeta.lastBackup).toDateString() !== new Date().toDateString()) odBackup(false);
     odSet(OD.again ? 'wait' : 'ok'); if (manual) toast('☁️ OneDrive à jour');
   } catch(e) {
@@ -1986,10 +1995,10 @@ function odSettingsHtml(){
     <div class="sub">Compte : <b>${esc(OD.account.username || '')}</b><br>Dernier envoi : <b>${odMeta.last ? fmtDate(odMeta.last) : 'jamais'}</b></div>
     <label>Sauvegarde sur OneDrive</label>
     <div class="chips">
-      <button class="chip ${odMeta.auto ? '' : 'on'}" onclick="odMeta.auto=false;odSaveMeta();odUi()">🔔 Me demander (bandeau en haut)</button>
+      <button class="chip ${odMeta.auto ? '' : 'on'}" onclick="odMeta.auto=false;odSaveMeta();odUi()">✋ Manuel (bouton « Sauvegarder maintenant »)</button>
       <button class="chip ${odMeta.auto ? 'on' : ''}" onclick="odMeta.auto=true;odSaveMeta();odDirty();odUi()">⚡ Automatique</button>
     </div>
-    <div class="hint">${odMeta.auto ? 'Chaque modification est envoyée toute seule après quelques secondes.' : 'Après une modification, un bandeau apparaît en haut : « Sauvegarder » envoie tout de suite, « Plus tard » le cache jusqu\'à la prochaine modification.'} Les fiches VCE ne sont jamais envoyées.</div>
+    <div class="hint">${odMeta.auto ? 'Chaque modification est envoyée toute seule après quelques secondes.' : 'Rien ne part tout seul : touche « Sauvegarder maintenant » quand tu veux envoyer.'} Les fiches VCE ne sont jamais envoyées.</div>
     ${OD.needLogin ? `<button class="btn primary block" onclick="odLogin()">🔑 Se reconnecter</button>` : ''}
     <button class="btn block" onclick="odSync(true)">🔄 Sauvegarder maintenant</button>
     <div class="sub" style="margin-top:12px"><b>💾 Sauvegardes datées</b> (dossier Sauvegardes) · dernière : <b>${odMeta.lastBackup ? fmtDate(odMeta.lastBackup) : 'aucune'}</b></div>
