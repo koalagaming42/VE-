@@ -168,7 +168,7 @@ details.sec[open]{padding-bottom:12px}
 <script src="jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ============ Version ============ */
-const APP_VERSION = '2.0';
+const APP_VERSION = '2.1';
 const APP_DATE = '19/11/2026';
 
 /* ============ Données ============ */
@@ -806,6 +806,9 @@ const VCE = {
     alim: n => ({loc: n >= 4 ? 'Transmetteur secours' + n : null, ref: null, ch: 'Charge batt ' + n, deb: 'batt debut ' + n, fin: 'batt fin ' + n, conso: 'batt conso ' + n}),
     page: ['Page 1/', 'Page /1'],
     sig: {client: [120, 31, 195, 25], tech: [372, 31, 135, 25]},
+    grow: {header: [0, 60], footer: [812, 842], cuts: [343.5, 373, 514.5, 573.5, 612, 670, 687.5, 752.5],
+      alim: {at: 313.6, band: [303.9, 313.6], x: [33, 364], num: [35.6, 49.4], numSize: 8.5, side: {x0: 365, to: 323.5}},
+      obs: {at: 734.0, band: [720.1, 734.0]}},
     sections: [
       {id: 'inter', t: '📋 Intervention', items: [
         {t: 'date', k: 'date', l: 'Date', pdf: 'Date1_af_date'},
@@ -907,6 +910,10 @@ const VCE = {
     lec: n => ({n: 'NRow' + n, loc: 'LocalisationRow' + n, type: 'TypeRow' + n, tete: 'TêteRow' + n, bp: 'BPDetRow' + n, dm: 'DMRow' + n, do: 'DORow' + n, v: 'Tension ' + n}),
     page: ['Page x/', 'Page /x'],
     sig: {client: 'Signature client', tech: 'Signature tech'},
+    grow: {header: [0, 72], footer: [797, 842], cuts: [361, 626, 646, 723],
+      alim: {at: 337.1, band: [325.1, 337.1], x: [0, 595.32], num: [36.6, 50.4], numSize: 10},
+      lec: {at: 623.7, band: [611.7, 623.7], x: [0, 595.32]},
+      obs: {at: 700, band: [690, 700]}},
     sections: [
       {id: 'inter', t: '📋 Intervention', items: [
         {t: 'date', k: 'date', l: 'Date', pdf: 'Date1_af_date'},
@@ -1122,7 +1129,7 @@ function alimsHtml(f, ve){
       </div>`; }).join('')}
     <button class="btn small block" onclick="alimAdd()">+ Ajouter une ligne</button>
     ${(f.unlinked || []).length ? `<button class="btn small block" onclick="relinkAll()">🔗 Relier à nouveau tous les coffrets</button>` : ''}
-    ${free > room ? `<div class="hint">ℹ️ Plus de ${room} lignes${D.fixed.length ? ' libres' : ''} : la fiche sera remplie sur ${Math.ceil(free / room)} pages (page 1/x, 2/x…).</div>` : ''}`;
+    ${f.alims.length > D.alimMax ? `<div class="hint">ℹ️ La fiche a ${D.alimMax} lignes : les lignes ${D.alimMax + 1} et suivantes seront ajoutées dans le tableau de la fiche (le reste de la fiche est décalé).</div>` : ''}`;
 }
 function lecteursHtml(f){
   const L = f.lecteurs;
@@ -1141,7 +1148,7 @@ function lecteursHtml(f){
     </div>`).join('') || '<div class="empty" style="padding:12px">Aucun lecteur pour l\'instant.</div>'}
     <div class="grid2"><button class="btn small block" onclick="lecAdd()">+ Lecteur</button><button class="btn small block" onclick="lecAdd(true)" ${L.length ? '' : 'disabled'}>+ Même type</button></div>
     ${L.length ? `<button class="btn small block" onclick="lecAllOk()">✓ Tous les essais vides → OK</button>` : ''}
-    ${L.length > 20 ? `<div class="hint">ℹ️ Plus de 20 lecteurs : la fiche sera remplie sur ${Math.ceil(L.length / 20)} pages.</div>` : ''}`;
+    ${L.length > 20 ? `<div class="hint">ℹ️ Plus de 20 lecteurs : les lecteurs 21 et suivants seront ajoutés dans le tableau de la fiche (le reste de la fiche est décalé).</div>` : ''}`;
 }
 function renderFiche(ve){
   const D = VCE[curType], f = getFiche(ve, curType, true);
@@ -1287,79 +1294,173 @@ async function buildVce(ve, type){
   await loadPdfLib();
   const rec = await tplGet(type);
   if (!rec) throw new Error(`fiche vierge ${VCE[type].short} pas encore chargée (Réglages)`);
-  const {PDFDocument, PDFTextField, PDFCheckBox, StandardFonts} = PDFLib;
-  const D = VCE[type], f = getFiche(ve, type, true); linkCoffrets(f, ve, type);
-  const fixedRows = f.alims.slice(0, D.fixed.length), freeRows = f.alims.slice(D.fixed.length);
-  const perPage = D.alimMax - D.fixed.length, alimPages = chunk(freeRows, perPage);
-  const lecPages = D.lecMax ? chunk(f.lecteurs, D.lecMax) : [];
-  const nPages = Math.max(1, alimPages.length, lecPages.length);
-  const out = await PDFDocument.create(), missing = new Set(), editable = [];
-  for (let p = 0; p < nPages; p++) {
-    const doc = await PDFDocument.load(rec.bytes, {ignoreEncryption: true});
-    const form = doc.getForm(), byName = {};
-    form.getFields().forEach(x => { byName[x.getName()] = x; try { if (x instanceof PDFTextField) x.setText(''); else if (x instanceof PDFCheckBox) x.uncheck(); } catch(e){} });
-    const T = (name, val, size) => {
-      if (!name) return; const x = byName[name]; if (!x) return missing.add(name);
-      if (val === undefined || val === null || val === '') return;
-      try { const ml = x.isMultiline && x.isMultiline(); x.setText(ml ? pdfTxt(val) : pdfTxt(val).replace(/\s*\n\s*/g, ' · ')); } catch(e){ try { x.setMaxLength(undefined); x.setText(pdfTxt(val)); } catch(e2){} }
-      try { x.setFontSize(size || 0); } catch(e){}
-    };
-    const C = name => { if (!name) return; const x = byName[name]; if (!x) return missing.add(name); try { x.check(); } catch(e){} };
-    const walk = (it, first) => {
-      const v = f.v[it.k];
-      switch (it.t) {
-        case 'pair': return it.items.forEach(x => walk(x, first));
-        case 'text': case 'num': return (first || ['inter', 'site', 'client', 'nomClient', 'fctClient', 'nomTech'].includes(it.k)) && T(it.pdf, v, it.k === 'client' || it.k === 'autres' ? 9 : 8);
-        case 'date': return T(it.pdf, frDate(v), 9);
-        case 'area': return first && T(it.pdf, v, 9);
-        case 'seg': { const o = it.opts.find(o => o[0] === v); return o && C(o[2]); }
-        case 'yn': return first && v && C(v === 'o' ? it.o : it.n);
-        case 'chk': return first && v && C(it.pdf);
-        case 'rows': return first && it.rows.forEach(r => {
-          if (r.q) T(r.q, f.v[r.k + '_q'], 8);
-          if (r.name) T(r.name, f.v[r.k + '_n'], 8);
-          r.c.forEach((pn, i) => { if (pn && f.v[r.k + '_' + i]) C(pn); });
-        });
-      }
-    };
-    D.sections.forEach(s => s.items.forEach(it => walk(it, p === 0)));
-    // Alimentations
-    const rows = p === 0 ? fixedRows.map((r, i) => [i + 1, r]) : [];
-    (alimPages[p] || []).forEach((r, i) => rows.push([D.fixed.length + 1 + i, r]));
-    rows.forEach(([n, r]) => {
-      const v = rowVals(r, ve), F = D.alim(n);
-      if (F.loc) T(F.loc, v.loc, 7); if (F.ref) T(F.ref, v.ref, 7);
-      T(F.ch, v.ch, 8); T(F.deb, v.deb, 8); T(F.fin, v.fin, 8); T(F.conso, v.conso, 8);
-    });
-    // Lecteurs
-    (lecPages[p] || []).forEach((l, i) => {
-      const F = D.lec(i + 1);
-      T(F.n, l.n, 8); T(F.loc, l.loc, 8); T(F.type, l.type, 8); ESSAIS.forEach(([k]) => T(F[k], l[k], 7)); T(F.v, l.v, 8);
-    });
-    // Pages
-    T(D.page[0], String(p + 1), 9); T(D.page[1], String(nPages), 9);
-    // Signatures : le champ « signature » du formulaire est retiré, l'image est dessinée à sa place
-    const page = doc.getPage(0), sigs = [];
-    for (const w of ['client', 'tech']) {
-      const src = f.v['sig_' + w]; if (!src) continue;
-      let rect = D.sig[w];
-      if (typeof rect === 'string') { const x = byName[rect]; if (!x) { missing.add(rect); continue; } const R = x.acroField.getWidgets()[0].getRectangle(); rect = [R.x, R.y, R.width, R.height]; try { form.removeField(x); } catch(e){} }
-      sigs.push([src, rect]);
+  const {PDFDocument, PDFTextField, PDFCheckBox, StandardFonts, rgb, grayscale} = PDFLib;
+  const D = VCE[type], G = D.grow, f = getFiche(ve, type, true); linkCoffrets(f, ve, type);
+  const missing = new Set();
+  const doc = await PDFDocument.load(rec.bytes, {ignoreEncryption: true});
+  const helv = await doc.embedFont(StandardFonts.Helvetica);
+  const form = doc.getForm(), byName = {};
+  form.getFields().forEach(x => { byName[x.getName()] = x; try { if (x instanceof PDFTextField) x.setText(''); else if (x instanceof PDFCheckBox) x.uncheck(); } catch(e){} });
+  const setTxt = (x, val, size) => {
+    try { const ml = x.isMultiline && x.isMultiline(); x.setText(ml ? pdfTxt(val) : pdfTxt(val).replace(/\s*\n\s*/g, ' · ')); } catch(e){ try { x.setMaxLength(undefined); x.setText(pdfTxt(val)); } catch(e2){} }
+    try { x.setFontSize(size || 0); } catch(e){}
+  };
+  const T = (name, val, size) => { if (!name) return; const x = byName[name]; if (!x) return missing.add(name); if (val === undefined || val === null || val === '') return; setTxt(x, val, size); };
+  const C = name => { if (!name) return; const x = byName[name]; if (!x) return missing.add(name); try { x.check(); } catch(e){} };
+  const rectOf = name => { const x = byName[name]; return x ? x.acroField.getWidgets()[0].getRectangle() : null; };
+
+  // --- Réponses ---
+  const walk = it => {
+    const v = f.v[it.k];
+    switch (it.t) {
+      case 'pair': return it.items.forEach(walk);
+      case 'text': case 'num': return T(it.pdf, v, it.k === 'client' || it.k === 'autres' ? 9 : 8);
+      case 'date': return T(it.pdf, frDate(v), 9);
+      case 'area': return T(it.pdf, v, 9);
+      case 'seg': { const o = it.opts.find(o => o[0] === v); return o && C(o[2]); }
+      case 'yn': return v && C(v === 'o' ? it.o : it.n);
+      case 'chk': return v && C(it.pdf);
+      case 'rows': return it.rows.forEach(r => {
+        if (r.q) T(r.q, f.v[r.k + '_q'], 8);
+        if (r.name) T(r.name, f.v[r.k + '_n'], 8);
+        r.c.forEach((pn, i) => { if (pn && f.v[r.k + '_' + i]) C(pn); });
+      });
     }
-    for (const [src, [rx, ry, rw, rh]] of sigs) {
-      const img = await doc.embedPng(src), k = Math.min(rw / img.width, rh / img.height);
-      page.drawImage(img, {x: rx + 2, y: ry + (rh - img.height * k) / 2, width: img.width * k, height: img.height * k});
-    }
-    form.getFields().forEach(x => { if (x instanceof PDFCheckBox) try { x.updateAppearances(tickProvider); } catch(e){} });
-    const helv = await doc.embedFont(StandardFonts.Helvetica);
-    form.updateFieldAppearances(helv);
-    doc.setTitle(`${D.short} ${siteName(ve.siteId)}${nPages > 1 ? ` (page ${p + 1}/${nPages})` : ''}`); doc.setProducer('Batteries VE (local)'); doc.setCreator('Batteries VE');
-    editable.push(await doc.save()); // version modifiable : les champs restent remplissables
-    form.flatten();
-    const [pg] = await out.copyPages(doc, [0]); out.addPage(pg);
+  };
+  D.sections.forEach(s => s.items.forEach(walk));
+  const alimAll = f.alims.map((r, i) => [i + 1, rowVals(r, ve)]), lecAll = f.lecteurs || [];
+  const alimVals = (n, v) => { const F = D.alim(n); return [[F.loc, n > D.fixed.length ? v.loc : null, 7], [F.ref, v.ref, 7], [F.ch, v.ch, 8], [F.deb, v.deb, 8], [F.fin, v.fin, 8], [F.conso, v.conso, 8]]; };
+  const lecVals = (n, l) => { const F = D.lec(n); return [[F.n, l.n, 8], [F.loc, l.loc, 8], [F.type, l.type, 8], ...ESSAIS.map(([k]) => [F[k], l[k], 7]), [F.v, l.v, 8]]; };
+  alimAll.slice(0, D.alimMax).forEach(([n, v]) => alimVals(n, v).forEach(([nm, val, sz]) => nm && T(nm, val, sz)));
+  if (D.lecMax) lecAll.slice(0, D.lecMax).forEach((l, i) => lecVals(i + 1, l).forEach(([nm, val, sz]) => T(nm, val, sz)));
+
+  // --- Agrandissement : lignes ajoutées dans les tableaux, cadre Observations rallongé, la suite décalée ---
+  const nA = Math.max(0, alimAll.length - D.alimMax), nL = D.lecMax ? Math.max(0, lecAll.length - D.lecMax) : 0;
+  const obsName = D.sections.find(s => s.id === 'obs').items.find(it => it.t === 'area').pdf, OBS = 9, LH = OBS * 1.16;
+  let nO = 0;
+  if (f.v.obs && rectOf(obsName)) {
+    const R = rectOf(obsName), w = R.width - 4, lines = [];
+    pdfTxt(f.v.obs).split('\n').forEach(par => { let ln = ''; par.split(/\s+/).filter(Boolean).forEach(word => { const t = ln ? ln + ' ' + word : word; if (helv.widthOfTextAtSize(t, OBS) <= w) ln = t; else { lines.push(ln); ln = word; } }); lines.push(ln); });
+    const cap = Math.floor((R.height - 3) / LH), step = G.obs.band[1] - G.obs.band[0];
+    if (lines.length > cap) nO = Math.ceil((lines.length - cap) * LH / step);
   }
-  out.setTitle(`${D.short} ${siteName(ve.siteId)}`); out.setProducer('Batteries VE (local)'); out.setCreator('Batteries VE');
-  return {bytes: await out.save(), editable, pages: nPages, missing: [...missing]};
+  const H = 841.92, W = 595.32, page0 = doc.getPage(0);
+  const events = [];
+  if (nA) events.push(Object.assign({n: nA, kind: 'alim'}, G.alim));
+  if (nL) events.push(Object.assign({n: nL, kind: 'lec'}, G.lec));
+  if (nO) events.push(Object.assign({n: nO, kind: 'obs', x: [0, W]}, G.obs));
+  events.sort((a, b) => a.at - b.at);
+  const pieces = [], copies = [], breaks = [], noBreak = [];
+  let cur = 0, off = 0;
+  const offAt = []; // [srcFrom, srcTo, off] pour les zones pleine largeur
+  for (const e of events) {
+    const step = e.band[1] - e.band[0];
+    pieces.push({a: cur, b: e.at, x0: 0, x1: W, v0: cur + off}); offAt.push([cur, e.at, off]);
+    if (e.side) { pieces.push({a: e.at, b: e.side.to, x0: e.side.x0, x1: W, v0: e.at + off}); noBreak.push([e.at + off, e.side.to + off + e.n * step]); }
+    e.v0 = e.at + off; e.offBefore = off;
+    for (let i = 0; i < e.n; i++) { copies.push({a: e.band[0], b: e.band[1], x0: e.x[0], x1: e.x[1], v0: e.at + off + i * step, e, i}); if (e.kind !== 'obs' && i) breaks.push(e.at + off + i * step); }
+    off += e.n * step;
+    if (e.side) { pieces.push({a: e.at, b: e.side.to, x0: 0, x1: e.side.x0, v0: e.at + off}); cur = e.side.to; } else cur = e.at;
+  }
+  pieces.push({a: cur, b: G.footer[0], x0: 0, x1: W, v0: cur + off}); offAt.push([cur, G.footer[0], off]);
+  G.cuts.forEach(c => { const z = offAt.find(([a, b]) => c >= a && c < b); if (z) breaks.push(c + z[2]); });
+  const vEnd = G.footer[0] + off;
+  const okBreaks = breaks.filter(v => !noBreak.some(([a, b]) => v > a && v < b)).sort((a, b) => a - b);
+  // Découpage en pages A4 (page 2 et suivantes : en-tête de la fiche répété en haut)
+  const ct = G.header[1] + 6, limit = G.footer[0] - 2, wins = [];
+  let w0 = 0;
+  while (true) {
+    const top = wins.length ? ct : 0, room = limit - top;
+    if (vEnd - w0 <= room) { wins.push([w0, vEnd, top]); break; }
+    const cand = okBreaks.filter(v => v > w0 + 20 && v - w0 <= room);
+    const w1 = cand.length ? cand[cand.length - 1] : w0 + room;
+    wins.push([w0, w1, top]); w0 = w1;
+  }
+  const total = wins.length;
+  const winOf = v => { for (let k = 0; k < wins.length; k++) if (v < wins[k][1] || k === wins.length - 1) return k; return wins.length - 1; };
+  const pageY = (k, v) => v - wins[k][0] + wins[k][2];
+  let pages = [page0];
+  if (events.length) {
+    const {pushGraphicsState, popGraphicsState, rectangle, clip, endPath} = PDFLib;
+    const emb = await doc.embedPage(page0);
+    pages = wins.map(() => doc.addPage([W, H]));
+    const blit = (pg, a, b, x0, x1, t) => { // copie la zone [a,b]×[x0,x1] de la fiche d'origine en haut t de la page
+      pg.pushOperators(pushGraphicsState(), rectangle(x0, H - t - (b - a), x1 - x0, b - a), clip(), endPath());
+      pg.drawPage(emb, {x: 0, y: a - t}); pg.pushOperators(popGraphicsState());
+    };
+    wins.forEach(([v0w, v1w], k) => {
+      const pg = pages[k];
+      if (k) blit(pg, G.header[0], G.header[1], 0, W, 0);
+      blit(pg, G.footer[0], G.footer[1], 0, W, G.footer[0]);
+      if (total > 1 && k < total - 1) pg.drawText(`Page ${k + 1} / ${total}`, {x: W - 95, y: 10, size: 8, font: helv, color: rgb(.3, .3, .3)});
+      [...pieces, ...copies].forEach(p => {
+        const u0 = Math.max(p.v0, v0w), u1 = Math.min(p.v0 + p.b - p.a, v1w); if (u1 - u0 <= 0.01) return;
+        blit(pg, p.a + u0 - p.v0, p.a + u1 - p.v0, p.x0, p.x1, pageY(k, u0));
+      });
+    });
+    // Numéros des lignes ajoutées (Alimentations)
+    copies.filter(c => c.e.kind === 'alim' && c.e.num).forEach(c => {
+      const k = winOf(c.v0 + 1), pg = pages[k], t = pageY(k, c.v0), st = c.b - c.a, [n0, n1] = c.e.num;
+      pg.drawRectangle({x: n0, y: H - t - st + 0.7, width: n1 - n0, height: st - 1.3, color: rgb(1, 1, 1)});
+      const txt = String(D.alimMax + c.i + 1), tw = helv.widthOfTextAtSize(txt, c.e.numSize);
+      pg.drawText(txt, {x: (n0 + n1 - tw) / 2, y: H - t - st + (st - c.e.numSize * .72) / 2, size: c.e.numSize, font: helv, color: rgb(0, 0, 0)});
+    });
+    // Nouvelles cases pour les lignes ajoutées (restent modifiables dans la version modifiable)
+    const addRow = (tplNames, vals, e, i) => {
+      const step = e.band[1] - e.band[0];
+      tplNames.forEach((nm, j) => {
+        if (!nm || !byName[nm]) return;
+        const tpl = byName[nm], tw = tpl.acroField.getWidgets()[0], R = tw.getRectangle(), top = H - R.y - R.height;
+        const v = top + e.offBefore + (i + 1) * step, k = winOf(v), t = pageY(k, v);
+        const mk = tw.getAppearanceCharacteristics(), bgc = mk && mk.getBackgroundColor();
+        const bg = !bgc ? undefined : bgc.length === 1 ? grayscale(bgc[0]) : bgc.length === 3 ? rgb(bgc[0], bgc[1], bgc[2]) : undefined;
+        const tf = form.createTextField(`plus_${e.kind}_${i + 1}_${j}`);
+        tf.addToPage(pages[k], {x: R.x, y: H - t - R.height, width: R.width, height: R.height, backgroundColor: bg, borderWidth: 0, font: helv});
+        try { tf.setAlignment(tpl.getAlignment()); } catch(er){}
+        const [, val, sz] = vals[j]; if (val !== undefined && val !== null && val !== '') setTxt(tf, val, sz);
+      });
+    };
+    const eA = events.find(e => e.kind === 'alim'), eL = events.find(e => e.kind === 'lec');
+    if (eA) alimAll.slice(D.alimMax).forEach(([n, v], i) => { const vals = alimVals(n, v), tpl = alimVals(D.alimMax, v).map(x => x[0]); addRow(tpl, vals, eA, i); });
+    if (eL) lecAll.slice(D.lecMax).forEach((l, i) => { const vals = lecVals(D.lecMax + i + 1, l), tpl = lecVals(D.lecMax, l).map(x => x[0]); addRow(tpl, vals, eL, i); });
+    // Les cases de la fiche suivent leur zone
+    const mapTop = (top, cx) => { // position d'origine (depuis le haut) → [page, haut sur la page]
+      const p = pieces.find(p => cx >= p.x0 && cx <= p.x1 && top >= p.a - 0.01 && top < p.b) || pieces[pieces.length - 1];
+      const v = p.v0 + top - p.a, k = winOf(v); return [k, pageY(k, v)];
+    };
+    const annots = page0.node.Annots();
+    if (annots) for (let i = 0; i < annots.size(); i++) {
+      const ref = annots.get(i), dict = doc.context.lookup(ref);
+      if (!dict || !dict.get || String(dict.get(PDFLib.PDFName.of('Subtype'))) !== '/Widget') continue;
+      const wdg = PDFLib.PDFWidgetAnnotation.fromDict(dict), R = wdg.getRectangle(), top = H - R.y - R.height;
+      const [k, t] = mapTop(top + 0.5, R.x + R.width / 2);
+      let h = R.height; if (nO && Math.abs(top - (H - rectOf(obsName).y - rectOf(obsName).height)) < 0.6 && Math.abs(R.x - rectOf(obsName).x) < 0.6) h += nO * (G.obs.band[1] - G.obs.band[0]);
+      wdg.setRectangle({x: R.x, y: H - t - h, width: R.width, height: h});
+      wdg.setP(pages[k].ref); pages[k].node.addAnnot(ref);
+    }
+    // Signatures
+    var sigPos = (rectPdf) => { const [x, y, w, h] = rectPdf, [k, t] = mapTop(H - y - h + 0.5, x + w / 2); return [pages[k], [x, H - t - h, w, h]]; };
+  } else var sigPos = rectPdf => [page0, rectPdf];
+  for (const who of ['client', 'tech']) {
+    const src = f.v['sig_' + who]; if (!src) continue;
+    let rect = D.sig[who];
+    if (typeof rect === 'string') { const x = byName[rect]; if (!x) { missing.add(rect); continue; } const R = rectOf(rect); rect = [R.x, R.y, R.width, R.height]; try { form.removeField(x); } catch(e){} }
+    const [pg, [rx, ry, rw, rh]] = sigPos(rect), img = await doc.embedPng(src), k = Math.min(rw / img.width, rh / img.height);
+    pg.drawImage(img, {x: rx + 2, y: ry + (rh - img.height * k) / 2, width: img.width * k, height: img.height * k});
+  }
+  T(D.page[0], String(total), 9); T(D.page[1], String(total), 9);
+  if (events.length) doc.removePage(0);
+  form.getFields().forEach(x => { if (x instanceof PDFCheckBox) try { x.updateAppearances(tickProvider); } catch(e){} });
+  form.updateFieldAppearances(helv);
+  doc.setTitle(`${D.short} ${siteName(ve.siteId)}`); doc.setProducer('Batteries VE (local)'); doc.setCreator('Batteries VE');
+  const editable = [await doc.save({useObjectStreams: false})]; // version modifiable : les cases restent remplissables
+  // Version non modifiable : on repart de la version modifiable enregistrée, puis on fige les cases
+  const flat = await PDFDocument.load(editable[0]);
+  flat.getForm().flatten({updateFieldAppearances: false});
+  const clean = await PDFDocument.create(); // recopie dans un document neuf : fichier propre et plus léger
+  (await clean.copyPages(flat, flat.getPageIndices())).forEach(pg => clean.addPage(pg));
+  clean.setTitle(`${D.short} ${siteName(ve.siteId)}`); clean.setProducer('Batteries VE (local)'); clean.setCreator('Batteries VE');
+  return {bytes: await clean.save({useObjectStreams: false}), editable, pages: total, missing: [...missing]};
 }
 // --- Envoi par mail : texte pré-enregistré + PDF modifiable + PDF non modifiable ---
 let lastVce = null;
