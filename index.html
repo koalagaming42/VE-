@@ -133,6 +133,13 @@ details.sec[open]{padding-bottom:12px}
 @media (prefers-color-scheme: dark){.ess.ok{background:#173a26;color:#7fd8a1}.ess.nok{background:#3a1d1d;color:#ff8f8f}}
 .sigbox{width:100%;height:84px;border:2px dashed var(--line);border-radius:10px;background:var(--bg);color:var(--muted);font-size:14px;padding:4px;display:flex;align-items:center;justify-content:center}
 .sigbox img{max-width:100%;max-height:100%;background:#fff;border-radius:6px}
+.sigfull{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column}
+.sigbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:calc(env(safe-area-inset-top) + 8px) 10px 8px;background:var(--card);border-bottom:1px solid var(--line)}
+.sigbar .btn{margin:0}
+.sigarea{position:relative;flex:1;margin:10px;background:#fff;border:2px dashed var(--line);border-radius:12px;overflow:hidden}
+.sigarea canvas{position:absolute;inset:0;touch-action:none}
+.sigline{position:absolute;left:8%;right:8%;bottom:28%;border-bottom:1.5px solid #c9d2d8;pointer-events:none}
+.sighint{position:absolute;left:0;right:0;bottom:calc(28% - 22px);text-align:center;color:#9aa6b0;font-size:13px;pointer-events:none}
 .sigcv{width:100%;height:200px;border:2px dashed var(--line);border-radius:12px;background:#fff;touch-action:none;display:block;margin:8px 0}
 </style>
 </head>
@@ -168,7 +175,7 @@ details.sec[open]{padding-bottom:12px}
 <script src="jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ============ Version ============ */
-const APP_VERSION = '2.1';
+const APP_VERSION = '2.2';
 const APP_DATE = '19/11/2026';
 
 /* ============ Données ============ */
@@ -192,7 +199,13 @@ function load(){
   return defaults();
 }
 let S = load();
+try { S.ves.forEach(v => v.coffrets.sort((a, b) => (!a.label - !b.label) || String(a.label || '').localeCompare(String(b.label || ''), 'fr', {numeric: true, sensitivity: 'base'}))); } catch(e){}
+// Coffrets toujours rangés par ordre alphabétique (les coffrets sans nom à la fin)
+const cmpTxt = (a, b) => a.localeCompare(b, 'fr', {numeric: true, sensitivity: 'base'});
+const cmpCoffret = (a, b) => (!a.label - !b.label) || cmpTxt(a.label || '', b.label || '') || cmpTxt(a.loc || '', b.loc || '');
+function sortCoffrets(){ S.ves.forEach(v => v.coffrets.sort(cmpCoffret)); }
 function save(){
+  sortCoffrets();
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){}
   updateBadges();
   try { odDirty(); } catch(e){}
@@ -805,7 +818,7 @@ const VCE = {
     fixed: ['Centrale', 'Transmetteur principal', 'Transmetteur secours'], alimMax: 8, hasRef: false,
     alim: n => ({loc: n >= 4 ? 'Transmetteur secours' + n : null, ref: null, ch: 'Charge batt ' + n, deb: 'batt debut ' + n, fin: 'batt fin ' + n, conso: 'batt conso ' + n}),
     page: ['Page 1/', 'Page /1'],
-    sig: {client: [120, 31, 195, 25], tech: [372, 31, 135, 25]},
+    sig: {client: [121, 32, 196, 22], tech: [372, 32, 132, 22]},
     grow: {header: [0, 60], footer: [812, 842], cuts: [343.5, 373, 514.5, 573.5, 612, 670, 687.5, 752.5],
       alim: {at: 313.6, band: [303.9, 313.6], x: [33, 364], num: [35.6, 49.4], numSize: 8.5, side: {x0: 365, to: 323.5}},
       obs: {at: 734.0, band: [720.1, 734.0]}},
@@ -963,6 +976,7 @@ function getFiche(ve, type, create){
   if (!f && create) {
     const st = S.sites.find(x => x.id === ve.siteId) || {};
     f = {v: {date: dayInput(ve.end || Date.now()), type: 'VE', client: st.client || siteName(ve.siteId), site: st.idSite || undefined, nomTech: S.settings.tech || ''}, alims: VCE[type].fixed.map(l => ({id: uid(), fixed: l})), lecteurs: [], unlinked: [], upd: Date.now()};
+    if (mySig()) f.v.sig_tech = mySig();
     const other = ficheOf(ve.id, otherType(type));
     if (other) SHARED.forEach(k => { if (other.v[k] !== undefined) f.v[k] = other.v[k]; });
     (FICHES[ve.id] = FICHES[ve.id] || {})[type] = f; saveFiches();
@@ -998,7 +1012,7 @@ function rowVals(r, ve){
 function linkCoffrets(f, ve, type){
   const D = VCE[type], linked = new Set(f.alims.map(r => r.cid).filter(Boolean));
   const todo = ve.coffrets.filter(c => c.type === D.ctype && !linked.has(c.id) && !(f.unlinked || []).includes(c.id));
-  if (!todo.length) return false;
+  if (!todo.length) { sortAlims(f, ve); return false; }
   const free = i => f.alims[i] && f.alims[i].fixed && !f.alims[i].cid && !f.alims[i].ch && !f.alims[i].deb;
   if (D.fixed.length) {
     const pats = [/centrale/i, /princ/i, /secours/i];
@@ -1006,7 +1020,14 @@ function linkCoffrets(f, ve, type){
     if (todo.length && free(0) && !ve.coffrets.some(c => /centrale/i.test(c.label + ' ' + c.loc))) f.alims[0].cid = todo.shift().id;
   }
   todo.forEach(c => f.alims.push({id: uid(), cid: c.id}));
+  sortAlims(f, ve);
   saveFiches(); return true;
+}
+// Lignes libres du tableau Alimentations rangées par ordre alphabétique (les lignes pré-imprimées restent en tête)
+function sortAlims(f, ve){
+  const fixed = f.alims.filter(r => r.fixed), rest = f.alims.filter(r => !r.fixed);
+  rest.sort((a, b) => cmpTxt(rowVals(a, ve).loc || '\uffff', rowVals(b, ve).loc || '\uffff'));
+  f.alims = [...fixed, ...rest];
 }
 function alimSet(id, k, v){ const r = curFiche().alims.find(x => x.id === id); r[k] = v; curFiche().upd = Date.now(); saveFiches(); }
 function alimAdd(){ curFiche().alims.push({id: uid()}); saveFiches(); rerenderFiche(); }
@@ -1074,6 +1095,23 @@ function clearFiche(){
   delete FICHES[curVe][curType]; saveFiches(); rerenderFiche(); toast('Fiche effacée');
 }
 
+// --- Ajouts automatiques en fin d'observations : commentaires des lecteurs + batteries remplacées / à remplacer ---
+function obsAuto(ve, type){
+  const D = VCE[type], f = ficheOf(ve.id, type) || {lecteurs: []}, out = [];
+  (f.lecteurs || []).filter(l => (l.com || '').trim()).forEach(l => out.push(`Lecteur ${l.n || '?'}${l.loc ? ' (' + l.loc + ')' : ''} : ${l.com.trim()}`));
+  const desc = (c, bats) => {
+    const g = {}; bats.forEach(b => { const k = '12V ' + fmtCap(b.cap) + 'Ah'; g[k] = (g[k] || 0) + 1; });
+    return `${c.label || 'Coffret'} (${Object.entries(g).map(([k, n]) => (n > 1 ? n + ' × ' : '') + k).join(', ')})`;
+  };
+  const cs = ve.coffrets.filter(c => c.type === D.ctype);
+  const rep = cs.filter(c => c.bats.some(b => b.replaced)).map(c => desc(c, c.bats.filter(b => b.replaced)));
+  const todo = cs.filter(c => c.bats.some(b => !b.replaced && batStatus(b) === 'bad')).map(c => desc(c, c.bats.filter(b => !b.replaced && batStatus(b) === 'bad')));
+  if (rep.length) out.push(`Batterie${rep.length > 1 ? 's' : ''} remplacée${rep.length > 1 ? 's' : ''} : ${rep.join(' ; ')}.`);
+  if (todo.length) out.push(`Batterie${todo.length > 1 ? 's' : ''} à remplacer : ${todo.join(' ; ')}.`);
+  return out;
+}
+const obsFull = (ve, type) => [(ficheOf(ve.id, type) || {v: {}}).v.obs || '', ...obsAuto(ve, type)].map(x => String(x).trim()).filter(Boolean).join('\n');
+
 // --- Écrans ---
 const shr = k => SHARED.has(k) ? ' <em class="shr" title="Commun aux fiches 08 et 11">⇄</em>' : '';
 const ynHtml = (k, v) => `<div class="unit">${[['o', 'Oui'], ['n', 'Non']].map(([x, l]) => `<button class="chip ${v === x ? 'on' : ''}" onclick="fpick('${k}','${x}')">${l}</button>`).join('')}</div>`;
@@ -1083,7 +1121,9 @@ function itemHtml(it, f, ve){
     case 'sub': return `<div class="sub" style="margin:12px 0 2px;font-weight:700">${esc(it.l)}</div>`;
     case 'text': case 'num': return `<label>${esc(it.l)}${shr(it.k)}</label><input ${it.t === 'num' ? 'inputmode="numeric"' : ''} value="${esc(v || '')}" oninput="fset('${it.k}', this.value)">`;
     case 'date': return `<label>${esc(it.l)}${shr(it.k)}</label><input type="date" value="${esc(v || '')}" onchange="fset('${it.k}', this.value)">`;
-    case 'area': return `<label>${esc(it.l)}</label><textarea oninput="fset('${it.k}', this.value)">${esc(v || '')}</textarea>`;
+    case 'area': { const auto = it.k === 'obs' ? obsAuto(ve, curType) : [];
+      return `<label>${esc(it.l)}</label><textarea oninput="fset('${it.k}', this.value)">${esc(v || '')}</textarea>
+      ${auto.length ? `<div class="hint" style="margin-top:6px"><b>Ajouté automatiquement à la suite sur la fiche :</b><br>${auto.map(esc).join('<br>')}</div>` : ''}`; }
     case 'pair': return `<div class="grid2">${it.items.map(x => `<div>${itemHtml(x, f, ve)}</div>`).join('')}</div>`;
     case 'seg': return `<label>${esc(it.l)}${shr(it.k)}</label><div class="chips">${it.opts.map(([x, l]) => `<button class="chip ${v === x ? 'on' : ''}" onclick="fpick('${it.k}','${x}')">${l}</button>`).join('')}</div>`;
     case 'yn': return `<div class="row vrow"><div class="grow">${esc(it.l)}${shr(it.k)}</div>${ynHtml(it.k, v)}</div>`;
@@ -1092,7 +1132,7 @@ function itemHtml(it, f, ve){
     case 'rows': return rowsHtml(it, f);
     case 'alims': return alimsHtml(f, ve);
     case 'lecteurs': return lecteursHtml(f);
-    case 'sigs': return `<div class="grid2" style="margin-top:10px">${['client', 'tech'].map(w => `<div><label>Signature ${w === 'client' ? 'client' : 'technicien'}</label>
+    case 'sigs': return `${!f.v.sig_tech && mySig() ? '<button class="btn small block" style="margin-top:10px" onclick="useMySig()">✍️ Mettre ma signature enregistrée</button>' : ''}<div class="grid2" style="margin-top:10px">${['client', 'tech'].map(w => `<div><label>Signature ${w === 'client' ? 'client' : 'technicien'}</label>
       <button class="sigbox" onclick="openSig('${w}')">${f.v['sig_' + w] ? `<img src="${f.v['sig_' + w]}" alt="signature">` : '<span>✍️ Toucher pour signer</span>'}</button></div>`).join('')}</div>`;
   }
   return '';
@@ -1143,6 +1183,7 @@ function lecteursHtml(f){
       <div class="row" style="margin-top:6px">
         <input class="grow" style="padding:8px" list="lecTypes" placeholder="Type" value="${esc(l.type || '')}" oninput="lecSet('${l.id}','type',this.value)">
         <input style="width:96px;padding:8px" inputmode="decimal" placeholder="Tension V" value="${esc(l.v || '')}" oninput="lecSet('${l.id}','v',this.value)"></div>
+      <input style="margin-top:6px;padding:8px" placeholder="💬 Commentaire (ajouté aux observations)" value="${esc(l.com || '')}" oninput="lecSet('${l.id}','com',this.value)">
       <div class="row" style="margin-top:6px;gap:6px">${ESSAIS.map(([k, lab]) => `<button class="ess ${l[k] === 'OK' ? 'ok' : l[k] === 'NOK' ? 'nok' : ''}" onclick="lecCycle('${l.id}','${k}')"><small>${lab}</small>${l[k] || '·'}</button>`).join('')}
         <button class="btn small" onclick="lecAllOk('${l.id}')">✓ OK</button></div>
     </div>`).join('') || '<div class="empty" style="padding:12px">Aucun lecteur pour l\'instant.</div>'}
@@ -1198,37 +1239,59 @@ function vceTabHtml(ve){
     <div class="sub center">🔒 Les fiches restent sur ce téléphone.</div>`;
 }
 
-// --- Signature au doigt ---
-let sigWho = null;
-function openSig(who){
-  sigWho = who;
-  openSheet(`<h3>✍️ Signature ${who === 'client' ? 'du client' : 'du technicien'}</h3>
-    <canvas id="sigCv" class="sigcv"></canvas>
-    <div class="grid2"><button class="btn block" onclick="sigClear()">Effacer</button><button class="btn primary block" onclick="sigSave()">✓ Valider</button></div>
-    ${curFiche().v['sig_' + who] ? `<button class="btn block" style="color:var(--bad)" onclick="fset('sig_${who}','');closeSheet();rerenderFiche()">Supprimer la signature</button>` : ''}
-    <button class="btn block" onclick="closeSheet()">Annuler</button>`);
-  const cv = $('sigCv'), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
-  cv.width = r.width * dpr; cv.height = r.height * dpr;
-  const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr); ctx.lineWidth = 2.4; ctx.lineCap = ctx.lineJoin = 'round'; ctx.strokeStyle = '#13235b';
-  let drawing = false; cv._used = false;
-  const pt = e => { const b = cv.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
-  cv.onpointerdown = e => { drawing = true; cv.setPointerCapture(e.pointerId); const [x, y] = pt(e); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + .1, y + .1); ctx.stroke(); cv._used = true; };
-  cv.onpointermove = e => { if (!drawing) return; const [x, y] = pt(e); ctx.lineTo(x, y); ctx.stroke(); };
-  cv.onpointerup = cv.onpointercancel = () => { drawing = false; };
+// --- Signature au doigt : plein écran, en portrait ou en paysage ---
+const SIGKEY = 'batteriesVE_maSignature'; // ta signature enregistrée : uniquement sur ce téléphone
+const mySig = () => { try { return localStorage.getItem(SIGKEY) || ''; } catch(e){ return ''; } };
+let SIG = null;
+function openSig(who){ sigPad(who === 'client' ? 'Signature du client' : 'Signature du technicien', who === 'tech' && mySig(), url => { fset('sig_' + who, url); rerenderFiche(); }, curFiche().v['sig_' + who] ? () => { fset('sig_' + who, ''); rerenderFiche(); } : null); }
+function useMySig(){ const s = mySig(); if (!s) return toast('Aucune signature enregistrée (Réglages)'); fset('sig_tech', s); rerenderFiche(); toast('✓ Ta signature est ajoutée'); }
+function editMySig(){ sigPad('Ma signature (enregistrée sur ce téléphone)', false, url => { try { localStorage.setItem(SIGKEY, url); } catch(e){} render(); toast('✓ Signature enregistrée'); }, mySig() ? () => { localStorage.removeItem(SIGKEY); render(); toast('Signature supprimée'); } : null); }
+function sigPad(title, offerMine, onSave, onDelete){
+  const el = document.createElement('div'); el.className = 'sigfull';
+  el.innerHTML = `<div class="sigbar"><b>✍️ ${esc(title)}</b><div class="grow"></div>
+      <button class="btn small" data-a="land">↻ Paysage</button>
+      ${offerMine ? '<button class="btn small" data-a="mine">Ma signature</button>' : ''}
+      ${onDelete ? '<button class="btn small" data-a="del" style="color:var(--bad)">Supprimer</button>' : ''}
+      <button class="btn small" data-a="clear">Effacer</button><button class="btn small" data-a="cancel">Annuler</button><button class="btn small primary" data-a="ok">✓ Valider</button></div>
+    <div class="sigarea"><canvas></canvas><div class="sigline"></div><div class="sighint">Signe ici · tourne le téléphone pour signer en paysage</div></div>`;
+  document.body.appendChild(el);
+  const cv = el.querySelector('canvas'), area = el.querySelector('.sigarea'), strokes = []; let cur = null;
+  const fit = () => { const r = area.getBoundingClientRect(), dpr = window.devicePixelRatio || 1; cv.width = r.width * dpr; cv.height = r.height * dpr; cv.style.width = r.width + 'px'; cv.style.height = r.height + 'px'; draw(); };
+  const draw = () => {
+    const c = cv.getContext('2d'), w = cv.width, h = cv.height, lw = Math.max(2, Math.min(w, h) / 110);
+    c.clearRect(0, 0, w, h); c.lineCap = c.lineJoin = 'round'; c.strokeStyle = '#13235b'; c.lineWidth = lw;
+    strokes.forEach(st => { c.beginPath(); st.forEach(([x, y], i) => i ? c.lineTo(x * w, y * h) : (c.moveTo(x * w, y * h), c.lineTo(x * w + .1, y * h + .1))); c.stroke(); });
+    el.querySelector('.sighint').style.display = strokes.length ? 'none' : '';
+  };
+  const pt = e => { const b = cv.getBoundingClientRect(); return [(e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height]; };
+  cv.onpointerdown = e => { cv.setPointerCapture(e.pointerId); cur = [pt(e)]; strokes.push(cur); draw(); };
+  cv.onpointermove = e => { if (!cur) return; cur.push(pt(e)); draw(); };
+  cv.onpointerup = cv.onpointercancel = () => { cur = null; };
+  const onR = () => setTimeout(fit, 120); window.addEventListener('resize', onR);
+  const close = () => { window.removeEventListener('resize', onR); try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch(e){} if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); el.remove(); };
+  const land = async () => { try { if (!document.fullscreenElement) await el.requestFullscreen(); await screen.orientation.lock('landscape'); } catch(e){ toast('Tourne simplement ton téléphone : la zone s\'adapte'); } };
+  el.querySelector('.sigbar').onclick = e => {
+    const a = e.target.closest('button') && e.target.closest('button').dataset.a; if (!a) return;
+    if (a === 'land') land();
+    if (a === 'clear') { strokes.length = 0; draw(); }
+    if (a === 'cancel') close();
+    if (a === 'del') { close(); onDelete(); }
+    if (a === 'mine') { close(); onSave(mySig()); }
+    if (a === 'ok') {
+      if (!strokes.length) return toast('Signe dans le cadre');
+      // Rendu net à taille fixe, recadré au plus près du tracé
+      const r = area.getBoundingClientRect(), W = 900, H = Math.round(W * r.height / r.width), o = document.createElement('canvas'); o.width = W; o.height = H;
+      const c = o.getContext('2d'); c.lineCap = c.lineJoin = 'round'; c.strokeStyle = '#13235b'; c.lineWidth = 6;
+      let x0 = 1, y0 = 1, x1 = 0, y1 = 0;
+      strokes.forEach(st => { c.beginPath(); st.forEach(([x, y], i) => { i ? c.lineTo(x * W, y * H) : (c.moveTo(x * W, y * H), c.lineTo(x * W + .1, y * H + .1)); x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }); c.stroke(); });
+      const pad = 8, sx = Math.max(0, x0 * W - pad), sy = Math.max(0, y0 * H - pad), sw = Math.min(W - sx, (x1 - x0) * W + pad * 2), sh = Math.min(H - sy, (y1 - y0) * H + pad * 2);
+      const out = document.createElement('canvas'), k = Math.min(1, 700 / sw); out.width = Math.max(1, Math.round(sw * k)); out.height = Math.max(1, Math.round(sh * k));
+      out.getContext('2d').drawImage(o, sx, sy, sw, sh, 0, 0, out.width, out.height);
+      close(); onSave(out.toDataURL('image/png'));
+    }
+  };
+  requestAnimationFrame(fit);
 }
-function sigClear(){ const cv = $('sigCv'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); cv._used = false; }
-function sigSave(){
-  const cv = $('sigCv'); if (!cv._used) return toast('Signe dans le cadre');
-  const ctx = cv.getContext('2d'), {width: w, height: h} = cv, d = ctx.getImageData(0, 0, w, h).data;
-  let x0 = w, y0 = h, x1 = 0, y1 = 0;
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 10) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-  if (x1 <= x0) return toast('Signe dans le cadre');
-  const pad = 6, out = document.createElement('canvas'), sc = Math.min(1, 600 / (x1 - x0 + pad * 2));
-  out.width = Math.round((x1 - x0 + pad * 2) * sc); out.height = Math.round((y1 - y0 + pad * 2) * sc);
-  out.getContext('2d').drawImage(cv, x0 - pad, y0 - pad, x1 - x0 + pad * 2, y1 - y0 + pad * 2, 0, 0, out.width, out.height);
-  fset('sig_' + sigWho, out.toDataURL('image/png')); closeSheet(); rerenderFiche();
-}
-
 // --- Fiches vierges gardées sur le téléphone (IndexedDB) ---
 let TPL = {'08': null, '11': null};
 function idb(){
@@ -1308,6 +1371,13 @@ async function buildVce(ve, type){
   const T = (name, val, size) => { if (!name) return; const x = byName[name]; if (!x) return missing.add(name); if (val === undefined || val === null || val === '') return; setTxt(x, val, size); };
   const C = name => { if (!name) return; const x = byName[name]; if (!x) return missing.add(name); try { x.check(); } catch(e){} };
   const rectOf = name => { const x = byName[name]; return x ? x.acroField.getWidgets()[0].getRectangle() : null; };
+  // Cadres de signature (position d'origine sur la fiche), relevés avant tout décalage
+  const sigRect = {};
+  for (const who of ['client', 'tech']) {
+    let r = D.sig[who];
+    if (typeof r === 'string') { const R = rectOf(r); if (!R) { missing.add(r); continue; } r = [R.x, R.y, R.width, R.height]; try { form.removeField(byName[r.name || D.sig[who]]); } catch(e){} delete byName[D.sig[who]]; }
+    sigRect[who] = r;
+  }
 
   // --- Réponses ---
   const walk = it => {
@@ -1316,7 +1386,7 @@ async function buildVce(ve, type){
       case 'pair': return it.items.forEach(walk);
       case 'text': case 'num': return T(it.pdf, v, it.k === 'client' || it.k === 'autres' ? 9 : 8);
       case 'date': return T(it.pdf, frDate(v), 9);
-      case 'area': return T(it.pdf, v, 9);
+      case 'area': return T(it.pdf, it.k === 'obs' ? obsFull(ve, type) : v, 9);
       case 'seg': { const o = it.opts.find(o => o[0] === v); return o && C(o[2]); }
       case 'yn': return v && C(v === 'o' ? it.o : it.n);
       case 'chk': return v && C(it.pdf);
@@ -1338,9 +1408,10 @@ async function buildVce(ve, type){
   const nA = Math.max(0, alimAll.length - D.alimMax), nL = D.lecMax ? Math.max(0, lecAll.length - D.lecMax) : 0;
   const obsName = D.sections.find(s => s.id === 'obs').items.find(it => it.t === 'area').pdf, OBS = 9, LH = OBS * 1.16;
   let nO = 0;
-  if (f.v.obs && rectOf(obsName)) {
+  const obsAll = obsFull(ve, type);
+  if (obsAll && rectOf(obsName)) {
     const R = rectOf(obsName), w = R.width - 4, lines = [];
-    pdfTxt(f.v.obs).split('\n').forEach(par => { let ln = ''; par.split(/\s+/).filter(Boolean).forEach(word => { const t = ln ? ln + ' ' + word : word; if (helv.widthOfTextAtSize(t, OBS) <= w) ln = t; else { lines.push(ln); ln = word; } }); lines.push(ln); });
+    pdfTxt(obsAll).split('\n').forEach(par => { let ln = ''; par.split(/\s+/).filter(Boolean).forEach(word => { const t = ln ? ln + ' ' + word : word; if (helv.widthOfTextAtSize(t, OBS) <= w) ln = t; else { lines.push(ln); ln = word; } }); lines.push(ln); });
     const cap = Math.floor((R.height - 3) / LH), step = G.obs.band[1] - G.obs.band[0];
     if (lines.length > cap) nO = Math.ceil((lines.length - cap) * LH / step);
   }
@@ -1367,7 +1438,7 @@ async function buildVce(ve, type){
   const vEnd = G.footer[0] + off;
   const okBreaks = breaks.filter(v => !noBreak.some(([a, b]) => v > a && v < b)).sort((a, b) => a - b);
   // Découpage en pages A4 (page 2 et suivantes : en-tête de la fiche répété en haut)
-  const ct = G.header[1] + 6, limit = G.footer[0] - 2, wins = [];
+  const ct = G.header[1] + 6, limit = G.footer[0] + 0.5, wins = [];
   let w0 = 0;
   while (true) {
     const top = wins.length ? ct : 0, room = limit - top;
@@ -1376,6 +1447,7 @@ async function buildVce(ve, type){
     const w1 = cand.length ? cand[cand.length - 1] : w0 + room;
     wins.push([w0, w1, top]); w0 = w1;
   }
+  if (!events.length) wins.splice(0, wins.length, [0, vEnd, 0]);
   const total = wins.length;
   const winOf = v => { for (let k = 0; k < wins.length; k++) if (v < wins[k][1] || k === wins.length - 1) return k; return wins.length - 1; };
   const pageY = (k, v) => v - wins[k][0] + wins[k][2];
@@ -1442,11 +1514,10 @@ async function buildVce(ve, type){
     var sigPos = (rectPdf) => { const [x, y, w, h] = rectPdf, [k, t] = mapTop(H - y - h + 0.5, x + w / 2); return [pages[k], [x, H - t - h, w, h]]; };
   } else var sigPos = rectPdf => [page0, rectPdf];
   for (const who of ['client', 'tech']) {
-    const src = f.v['sig_' + who]; if (!src) continue;
-    let rect = D.sig[who];
-    if (typeof rect === 'string') { const x = byName[rect]; if (!x) { missing.add(rect); continue; } const R = rectOf(rect); rect = [R.x, R.y, R.width, R.height]; try { form.removeField(x); } catch(e){} }
-    const [pg, [rx, ry, rw, rh]] = sigPos(rect), img = await doc.embedPng(src), k = Math.min(rw / img.width, rh / img.height);
-    pg.drawImage(img, {x: rx + 2, y: ry + (rh - img.height * k) / 2, width: img.width * k, height: img.height * k});
+    const src = f.v['sig_' + who]; if (!src || !sigRect[who]) continue;
+    const [pg, [rx, ry, rw, rh]] = sigPos(sigRect[who]), img = await doc.embedPng(src);
+    const pad = 1.5, k = Math.min((rw - 2 * pad) / img.width, (rh - 2 * pad) / img.height), iw = img.width * k, ih = img.height * k;
+    pg.drawImage(img, {x: rx + (rw - iw) / 2, y: ry + (rh - ih) / 2, width: iw, height: ih});
   }
   T(D.page[0], String(total), 9); T(D.page[1], String(total), 9);
   if (events.length) doc.removePage(0);
@@ -1587,6 +1658,12 @@ function renderSettings(){
     <div class="card">
       <label style="margin-top:0">Nom du technicien (affiché sur le rapport)</label>
       <input id="sTech" value="${esc(S.settings.tech || '')}" placeholder="ex. Aeden Becher" onchange="S.settings.tech=this.value.trim();save();toast('Nom enregistré')">
+    </div>
+    <h2>✍️ Ma signature</h2>
+    <div class="card">
+      <div class="sub">Enregistrée <b>uniquement sur ce téléphone</b> (jamais sur OneDrive). Elle se met toute seule dans le cadre « Signature » du technicien de chaque nouvelle fiche VCE.</div>
+      ${mySig() ? `<div class="sigbox" style="height:90px;margin:8px 0"><img src="${mySig()}" alt="ma signature"></div>` : ''}
+      <button class="btn ${mySig() ? '' : 'primary'} block" onclick="editMySig()">${mySig() ? '✏️ Refaire ma signature' : '✍️ Enregistrer ma signature'}</button>
     </div>
     <h2>✉️ Mail des fiches VCE</h2>
     <div class="card">
@@ -1786,11 +1863,55 @@ async function odSync(manual){
     await odPut(token, 'batteries-ve.json', JSON.stringify(Object.assign({}, S, {exportedAt: new Date().toISOString()}), null, 1), 'application/json');
     await odPut(token, 'batteries-ve.xlsx', buildXlsx(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     odMeta.pending = OD.again; odMeta.last = Date.now(); odSaveMeta();
+    if (!odMeta.lastBackup || new Date(odMeta.lastBackup).toDateString() !== new Date().toDateString()) odBackup(false);
     odSet(OD.again ? 'wait' : 'ok'); if (manual) toast('☁️ OneDrive à jour');
   } catch(e) {
     odMeta.pending = true; odSaveMeta();
     if (!OD.needLogin) { odSet('err', !navigator.onLine ? 'Hors ligne : envoi dès le retour du réseau.' : odErrText(e)); if (odMeta.auto) odSchedule(60000); }
   } finally { OD.busy = false; if (OD.again && odMeta.auto) odSchedule(1500); }
+}
+// --- Sauvegardes datées : OneDrive › Applications › BATTERIES VE › Sauvegardes ---
+const stamp = d => { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}h${p(d.getMinutes())}`; };
+async function odBackup(manual){
+  if (!odReady()) return manual && toast('Connecte d\'abord OneDrive');
+  if (isEmpty()) return manual && toast('Rien à sauvegarder : aucune donnée sur ce téléphone');
+  try {
+    if (manual) toast('💾 Sauvegarde en cours…');
+    const token = await odToken(), name = `Sauvegardes/batteries-ve_${stamp(new Date())}.json`;
+    await odPut(token, name, JSON.stringify(Object.assign({}, S, {exportedAt: new Date().toISOString()}), null, 1), 'application/json');
+    odMeta.lastBackup = Date.now(); odSaveMeta(); odUi();
+    if (manual) toast('✅ Sauvegarde enregistrée sur OneDrive');
+  } catch(e){ if (manual) toast('Sauvegarde impossible : ' + odErrText(e)); }
+}
+async function odBackupList(){
+  if (!odReady()) return toast('Connecte d\'abord OneDrive');
+  openSheet(`<h3>📂 Sauvegardes OneDrive</h3><div class="sub">Chargement de la liste…</div>`);
+  try {
+    const token = await odToken(), r = await fetch(`${GRAPH}:/Sauvegardes:/children?$top=200`, {headers: {Authorization: 'Bearer ' + token}});
+    const items = r.status === 404 ? [] : r.ok ? ((await r.json()).value || []).filter(x => /\.json$/i.test(x.name)) : null;
+    if (!items) throw new Error('liste : erreur ' + r.status);
+    items.sort((a, b) => b.name.localeCompare(a.name));
+    window._bk = items;
+    openSheet(`<h3>📂 Sauvegardes OneDrive</h3>
+      ${items.length ? `<div class="sub">Touche une sauvegarde pour remettre l'appli dans cet état (tu pourras annuler).</div>` + items.slice(0, 60).map((x, i) => {
+        const m = x.name.match(/(\d{4})-(\d\d)-(\d\d)_(\d\d)h(\d\d)/);
+        return `<button class="btn block" style="text-align:left" onclick="odBackupRestore(${i})">🗂 ${m ? `${m[3]}/${m[2]}/${m[1]} à ${m[4]}h${m[5]}` : esc(x.name)} <span class="sub">· ${Math.max(1, Math.round((x.size || 0) / 1024))} Ko</span></button>`;
+      }).join('') : '<div class="sub">Aucune sauvegarde pour l\'instant. Fais-en une avec « 💾 Faire une sauvegarde ».</div>'}
+      <button class="btn block" onclick="closeSheet()">Fermer</button>`);
+  } catch(e){ openSheet(`<h3>📂 Sauvegardes OneDrive</h3><div class="alertbar bad">⛔ <div class="grow">${esc(odErrText(e))}</div></div><button class="btn block" onclick="closeSheet()">Fermer</button>`); }
+}
+async function odBackupRestore(i){
+  const x = (window._bk || [])[i]; if (!x) return;
+  try {
+    const token = await odToken(), auth = {headers: {Authorization: 'Bearer ' + token}};
+    let url = x['@microsoft.graph.downloadUrl'];
+    const d = url ? await (await fetch(url)).json() : await (await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${x.id}/content`, auth)).json();
+    if (!Array.isArray(d.ves)) throw new Error('fichier de sauvegarde invalide');
+    if (!confirm(`Remplacer les données de l'appli par cette sauvegarde (${d.ves.length} VE, ${(d.sites || []).length} sites) ?`)) return;
+    snapshot(); delete d.exportedAt;
+    S = Object.assign(defaults(), d, {settings: Object.assign(defaults().settings, d.settings || {}, {odClientId: odClientId() || (d.settings || {}).odClientId})});
+    save(); closeSheet(); render(); offerUndo('📂 Sauvegarde restaurée');
+  } catch(e){ toast('Restauration impossible : ' + odErrText(e)); }
 }
 async function odRestore(auto){
   if (!odReady()) return auto || toast('Connecte d\'abord OneDrive');
@@ -1849,7 +1970,11 @@ function odSettingsHtml(){
     <div class="hint">${odMeta.auto ? 'Chaque modification est envoyée toute seule après quelques secondes.' : 'Après une modification, un bandeau apparaît en haut : « Sauvegarder » envoie tout de suite, « Plus tard » le cache jusqu\'à la prochaine modification.'} Les fiches VCE ne sont jamais envoyées.</div>
     ${OD.needLogin ? `<button class="btn primary block" onclick="odLogin()">🔑 Se reconnecter</button>` : ''}
     <button class="btn block" onclick="odSync(true)">🔄 Sauvegarder maintenant</button>
-    <button class="btn block" onclick="odRestore()">📥 Récupérer mes données depuis OneDrive</button>
+    <div class="sub" style="margin-top:12px"><b>💾 Sauvegardes datées</b> (dossier Sauvegardes) · dernière : <b>${odMeta.lastBackup ? fmtDate(odMeta.lastBackup) : 'aucune'}</b></div>
+    <button class="btn primary block" onclick="odBackup(true)">💾 Faire une sauvegarde sur OneDrive</button>
+    <button class="btn block" onclick="odBackupList()">📂 Restaurer une sauvegarde…</button>
+    <div class="hint">Une sauvegarde datée est aussi faite automatiquement une fois par jour, à la première synchronisation. Les fiches VCE et ta signature n'y sont jamais.</div>
+    <button class="btn block" onclick="odRestore()">📥 Récupérer la dernière synchro</button>
     <div class="hint">Fichiers : <b>batteries-ve.xlsx</b> (onglets Batteries, Mesures, Carnet) et <b>batteries-ve.json</b> (sauvegarde complète).</div>
     <button class="btn block" onclick="odLogout()">Déconnecter OneDrive</button>`;
 }
