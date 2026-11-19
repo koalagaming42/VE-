@@ -25,6 +25,12 @@
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:16px}
 header{position:sticky;top:0;z-index:10;background:var(--primary);color:#fff;padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;display:flex;align-items:center;gap:10px}
 header{flex-wrap:wrap}
+.topwrap{position:sticky;top:0;z-index:10}
+.topwrap header{position:relative}
+.bkbar{display:block;width:100%;border:0;text-align:left;padding:9px 16px;font-size:13.5px;font-weight:600;line-height:1.3;color:#fff;background:#8a96a0}
+.bkbar.orange{background:#e07b00}
+.bkbar.vert{background:#1f9d55}
+.ver{text-align:center;color:var(--muted);font-size:12px;margin:18px 0 4px}
 .odbar{flex-basis:100%;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.14);border-radius:10px;padding:6px 6px 6px 10px;font-size:13px;line-height:1.25;margin-top:2px}
 .odbar[hidden]{display:none}
 .odbar .grow{flex:1}
@@ -145,13 +151,11 @@ details.sec[open]{padding-bottom:12px}
 </head>
 <body>
 
-<header>
+<div class="topwrap"><header>
   <button class="hbtn back" id="backBtn" onclick="goBack()" hidden aria-label="Retour">‹</button>
   <h1 id="title">🔋 Batteries VE</h1>
-  <button class="hbtn" id="odBadge" onclick="go('settings')" aria-label="OneDrive" hidden>☁️<span class="oddot" id="odDot"></span></button>
-  <div class="odbar" id="odBar" hidden><span>☁️</span><div class="grow" id="odBarMsg">Modifications pas encore sauvegardées sur OneDrive</div>
-    <button class="yes" onclick="bannerSave()">Sauvegarder</button><button class="no" onclick="odLater()">Plus tard</button></div>
 </header>
+<button class="bkbar" id="bkBar" onclick="sendBackup()"></button></div>
 
 <main id="view"></main>
 <button class="fab" id="fab" onclick="fabAction()" aria-label="Ajouter">+</button>
@@ -167,6 +171,7 @@ details.sec[open]{padding-bottom:12px}
 <div class="toast" id="toast"></div>
 <div class="undobar" id="undoBar"><span id="undoMsg"></span><button onclick="undo()">↩️ Annuler</button></div>
 <input type="file" id="impTpl" accept=".pdf,application/pdf" multiple hidden onchange="importTpl([...this.files]);this.value=''">
+<input type="file" id="impBk" hidden onchange="loadBackup(this.files[0]);this.value=''">
 <input type="file" id="impJson" accept=".json,application/json,text/plain,application/octet-stream" hidden onchange="importData(this.files[0]);this.value=''">
 
 <script src="msal-browser.min.js"></script>
@@ -175,7 +180,7 @@ details.sec[open]{padding-bottom:12px}
 <script src="jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ============ Version ============ */
-const APP_VERSION = '2.5';
+const APP_VERSION = '3.0';
 const APP_DATE = '19/11/2026';
 
 /* ============ Données ============ */
@@ -204,6 +209,8 @@ try { S.ves.forEach(v => v.coffrets.sort((a, b) => (!a.label - !b.label) || Stri
 const cmpTxt = (a, b) => a.localeCompare(b, 'fr', {numeric: true, sensitivity: 'base'});
 const cmpCoffret = (a, b) => (!a.label - !b.label) || cmpTxt(a.label || '', b.label || '') || cmpTxt(a.loc || '', b.loc || '');
 function sortCoffrets(){ S.ves.forEach(v => v.coffrets.sort(cmpCoffret)); }
+// Sauvegarde OneDrive par le menu Partager : on garde dans le téléphone la date de dernière modification
+// et la date du dernier envoi réussi (le bandeau reste orange même après fermeture de l'appli)
 const BKKEY = 'batteriesVE_sauvegarde';
 let BK = (() => { try { return JSON.parse(localStorage.getItem(BKKEY)) || {}; } catch(e){ return {}; } })();
 const saveBK = () => { try { localStorage.setItem(BKKEY, JSON.stringify(BK)); } catch(e){} };
@@ -211,7 +218,7 @@ let quietSave = false;
 function save(){
   sortCoffrets();
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){}
-  if (!quietSave && S.ves.length + S.sites.length) { BK.dirty = true; BK.later = false; saveBK(); }
+  if (!quietSave) { BK.lastMod = Date.now(); saveBK(); try { bkUi(); } catch(e){} }
   updateBadges();
   try { odDirty(); } catch(e){}
 }
@@ -283,7 +290,8 @@ function render(){
   $('title').textContent = tab === 'fiche' ? VCE[curType].short + ' · ' + siteName(ve.siteId) : tab === 've' ? siteName(ve.siteId) : tab === 'site' ? '🏢 ' + site.name : tab === 'sites' ? '🏢 Mes sites' : '🔋 Batteries VE';
   $('fab').style.display = (tab === 'ves' || tab === 'sites' || tab === 'site' || (tab === 've' && veMode === 'bat')) ? '' : 'none';
   ({ves: renderVes, ve: () => renderVe(ve), fiche: () => renderFiche(ve), sites: renderSites, site: () => renderSite(site), bats: renderBats, settings: renderSettings})[tab]();
-  updateBadges(); odUi();
+  $('view').insertAdjacentHTML('beforeend', `<div class="ver">Batteries VE · version ${APP_VERSION}</div>`);
+  updateBadges(); bkUi();
 }
 function fabAction(){ tab === 've' ? addCoffret() : tab === 'sites' ? editSite() : tab === 'site' ? newVe(siteName(curSite)) : newVe(); }
 
@@ -321,7 +329,8 @@ function renderVes(){
     ${!storageOK ? `<div class="alertbar bad">⛔ Les données ne sont pas enregistrées sur ce navigateur. Ouvre l'appli avec Chrome.</div>` : ''}
     ${alerts ? `<div class="alertbar bad tap" onclick="go('bats')">⚠️ <div class="grow"><b>${alerts} batterie${alerts>1?'s':''}</b> de plus de ${S.settings.ageYears} ans à remplacer</div>›</div>` : ''}
     <h2>VE en cours</h2>
-    ${open.length ? open.map(veCard).join('') : `<div class="card empty">Aucune VE en cours.<br><button class="btn primary block" onclick="newVe()">+ Démarrer une VE</button></div>`}
+    ${open.length ? open.map(veCard).join('') : `<div class="card empty">Aucune VE en cours.<br><button class="btn primary block" onclick="newVe()">+ Démarrer une VE</button>
+      ${!hasData() ? `<button class="btn block" onclick="pickBackup()">☁️ J'ai déjà une sauvegarde sur OneDrive</button>` : ''}</div>`}
     ${closed.length ? `<h2>Historique</h2>${closed.slice(0, 40).map(veCard).join('')}` : ''}`;
 }
 
@@ -1693,16 +1702,16 @@ function renderSettings(){
       </div>
       <button class="btn primary block" onclick="saveSettings()">Enregistrer</button>
     </div>
-    <h2>☁️ OneDrive (sauvegarde)</h2>
+    <h2>☁️ Sauvegarde OneDrive</h2>
     <div class="card">
-      <div class="sub">Touche le bouton → menu Partager → <b>OneDrive</b> → ton compte <b>pro ou perso</b> → le dossier (ex. « Batteries VE ») → Enregistrer.<br>Le petit nuage en haut est <b>orange</b> s'il y a des modifications pas encore sauvegardées, <b>vert</b> après la sauvegarde.</div>
-      <div class="sub">Dernière sauvegarde envoyée : <b>${S.lastBackup ? fmtDate(S.lastBackup) : 'jamais'}</b></div>
-      <button class="btn primary block" onclick="shareBackup()">☁️ Enregistrer la sauvegarde dans OneDrive…</button>
-      <button class="btn block" onclick="$('impJson').click()">📥 Reprendre une sauvegarde (depuis OneDrive…)</button>
-      <div class="hint">Pour reprendre : dans la fenêtre qui s'ouvre, touche <b>☰</b> (ou « Parcourir »), choisis <b>OneDrive</b>, puis le fichier <b>batteries-ve_….json</b>. Il faut l'appli OneDrive installée sur le téléphone. Les fiches VCE et ta signature ne sont jamais dans la sauvegarde.</div>
+      <div class="sub">Tes données restent dans le téléphone ; OneDrive ne sert que de sauvegarde. L'appli ne se connecte jamais à OneDrive : elle prépare un fichier et ouvre le menu <b>Partager</b> → choisis <b>OneDrive</b>, le dossier, puis <b>Enregistrer</b>.</div>
+      <div class="sub">État : <b>${{gris: 'pas encore de sauvegarde', orange: 'modifications pas encore envoyées', vert: 'tout est sur OneDrive (' + (BK.lastSent ? whenTxt(BK.lastSent) : '') + ')'}[bkState()]}</b></div>
+      <button class="btn primary block" onclick="sendBackup()">📤 Envoyer une sauvegarde sur OneDrive</button>
+      <button class="btn block" onclick="pickBackup()">📥 Charger une sauvegarde</button>
+      <div class="hint">Pour charger : touche <b>☰</b> (ou « Parcourir »), choisis <b>OneDrive</b> puis le fichier <b>batteries-ve ….txt</b> le plus récent.<br>
+      📱 <b>Profil pro / perso</b> : pour ton OneDrive <b>pro</b>, ouvre l'appli dans le Chrome du profil pro ; pour le OneDrive <b>perso</b>, dans le Chrome perso. Chaque profil a ses propres données.<br>
+      Les fiches VCE et ta signature ne sont jamais dans la sauvegarde.</div>
     </div>
-    <h2>🔗 Synchro automatique OneDrive (compte perso)</h2>
-    <div class="card" id="odCard">${odSettingsHtml()}</div>
     <h2>Sauvegarde & export</h2>
     <div class="card">
       <div class="sub">Dernière sauvegarde manuelle : <b>${S.lastBackup ? fmtDate(S.lastBackup) : 'jamais'}</b></div>
@@ -1725,6 +1734,81 @@ function saveSettings(){
 function download(name, content, type){
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([content], {type}));
   a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+/* ============ Sauvegarde OneDrive par le menu Partager (l'appli ne se connecte jamais à OneDrive) ============ */
+const BK_APP = 'batteries-ve';
+const hasData = () => S.ves.length + S.sites.length > 0;
+const hm = t => new Date(t).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+const whenTxt = t => new Date(t).toDateString() === new Date().toDateString() ? `aujourd'hui à ${hm(t)}`
+  : new Date(t).toDateString() === new Date(Date.now() - 864e5).toDateString() ? `hier à ${hm(t)}` : `le ${fmtDay(t)} à ${hm(t)}`;
+function bkState(){ if (!BK.lastSent) return 'gris'; return (BK.lastMod || 0) > BK.lastSent ? 'orange' : 'vert'; }
+function bkUi(){
+  const b = $('bkBar'); if (!b) return;
+  const st = bkState(); b.className = 'bkbar ' + st;
+  b.textContent = st === 'orange' ? '📤 Modifications pas encore sur OneDrive — touche ici pour les envoyer'
+    : st === 'vert' ? `☁️ Tout est sur OneDrive ✓ (envoyé ${whenTxt(BK.lastSent)})`
+    : hasData() ? 'Pas encore de sauvegarde — touche ici pour en faire une' : 'Pas encore de sauvegarde — touche ici pour charger ou faire une sauvegarde';
+}
+function bkFile(){
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  const name = `${BK_APP} ${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}h${p(d.getMinutes())}.txt`;
+  const body = JSON.stringify({app: BK_APP, version: APP_VERSION, updated: BK.lastMod || Date.now(), data: S}, null, 1);
+  return {name, body};
+}
+async function sendBackup(){
+  if (!hasData()) return openSheet(`<h3>☁️ Sauvegarde</h3><div class="sub">Il n'y a encore aucune donnée sur ce téléphone.</div>
+    <button class="btn primary block" onclick="closeSheet();pickBackup()">📥 Charger une sauvegarde depuis OneDrive</button><button class="btn block" onclick="closeSheet()">Fermer</button>`);
+  const {name, body} = bkFile(), sentMod = BK.lastMod || Date.now();
+  const file = new File([body], name, {type: 'text/plain'}); // .txt : Chrome Android refuse de partager les .json
+  let canShare = false; try { canShare = !!(navigator.share && navigator.canShare && navigator.canShare({files: [file]})); } catch(e){}
+  if (canShare) {
+    try {
+      await navigator.share({files: [file], title: name});
+      BK.lastSent = Math.max(Date.now(), sentMod); saveBK(); bkUi(); toast('✅ Sauvegarde envoyée');
+      return;
+    } catch(e) {
+      if (e && e.name === 'AbortError') { toast('Envoi annulé'); bkUi(); return; }
+      // autre refus du partage : on bascule sur le téléchargement ci-dessous
+    }
+  }
+  download(name, body, 'text/plain');
+  openSheet(`<h3>📥 Fichier téléchargé</h3>
+    <div class="sub">Le partage n'est pas possible ici, alors la sauvegarde <b>${esc(name)}</b> a été téléchargée dans le dossier <b>Téléchargements</b> du téléphone.</div>
+    <div class="sub">Pour la mettre sur OneDrive : ouvre l'appli <b>OneDrive</b> › <b>+</b> › <b>Importer</b> › choisis ce fichier.</div>
+    <div class="hint">Le bandeau reste orange : l'appli ne peut pas savoir si le fichier est bien arrivé sur OneDrive.</div>
+    <button class="btn block" onclick="closeSheet()">OK</button>`);
+}
+function pickBackup(){ $('impBk').click(); }
+async function loadBackup(file){
+  if (!file) return;
+  const fail = msg => openSheet(`<h3>📥 Charger une sauvegarde</h3><div class="alertbar bad">⛔ <div class="grow">${msg}</div></div><button class="btn block" onclick="closeSheet()">OK</button>`);
+  let txt = '';
+  try { txt = await file.text(); } catch(e){ return fail('Impossible de lire ce fichier. Réessaie, ou télécharge-le d\'abord sur le téléphone depuis l\'appli OneDrive.'); }
+  txt = txt.replace(/^﻿/, '').trim();
+  if (!txt) return fail(`Le fichier « ${esc(file.name)} » est vide.`);
+  let o; try { o = JSON.parse(txt); } catch(e){
+    return fail(txt[0] !== '{' ? `Mauvais fichier choisi : « ${esc(file.name)} » n'est pas une sauvegarde Batteries VE.` : `Le fichier « ${esc(file.name)} » est abîmé (contenu incomplet ou modifié). Choisis une autre sauvegarde.`);
+  }
+  let data, updated;
+  if (o && o.app && o.data !== undefined) {
+    if (o.app !== BK_APP) return fail(`Mauvais fichier choisi : c'est une sauvegarde d'une autre appli (« ${esc(String(o.app))} »), pas de Batteries VE.`);
+    data = o.data; updated = +o.updated || 0;
+  } else if (o && Array.isArray(o.ves)) { data = o; updated = Date.parse(o.exportedAt || '') || 0; } // anciennes sauvegardes .json
+  else return fail(`Mauvais fichier choisi : « ${esc(file.name)} » n'est pas une sauvegarde Batteries VE.`);
+  if (!data || !Array.isArray(data.ves) || !Array.isArray(data.sites || [])) return fail(`Le fichier « ${esc(file.name)} » est abîmé : les données sont incomplètes.`);
+  const apply = () => {
+    snapshot(); delete data.exportedAt;
+    S = Object.assign(defaults(), data, {settings: Object.assign(defaults().settings, data.settings || {})});
+    quietSave = true; save(); quietSave = false;
+    BK.lastMod = updated || Date.now(); BK.lastSent = BK.lastMod; saveBK();
+    closeSheet(); render(); offerUndo(`📥 Sauvegarde chargée : ${S.ves.length} VE, ${S.sites.length} site${S.sites.length > 1 ? 's' : ''}`);
+  };
+  window._bkApply = apply;
+  if (!hasData() || updated > (BK.lastMod || 0)) return apply();
+  openSheet(`<h3>📥 Déjà à jour</h3>
+    <div class="sub">Les données de ce téléphone sont aussi récentes (ou plus) que cette sauvegarde${updated ? ` du ${fmtDay(updated)} à ${hm(updated)}` : ''}. Rien n'a été changé.</div>
+    <button class="btn block" onclick="closeSheet()">OK</button>
+    <button class="btn block" style="color:var(--bad)" onclick="if(confirm('Remplacer les données du téléphone par cette sauvegarde plus ancienne ?')) window._bkApply()">Remplacer quand même</button>`);
 }
 // Sauvegarde .json envoyée via le menu « Partager » du téléphone : OneDrive (pro ou perso), Drive, Fichiers…
 async function shareBackup(){
@@ -2017,7 +2101,6 @@ document.addEventListener('visibilitychange', () => {
 
 /* ============ Démarrage ============ */
 render();
-odInit();
 tplLoadInfo();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));

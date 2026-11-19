@@ -4,7 +4,7 @@
 // - Les données (stock, historique, réglages) ne passent jamais par ce fichier.
 //   Elles restent sur le téléphone, et ne partent que vers TON OneDrive si tu l'as connecté.
 // - Les fiches VCE (réponses et fiches vierges) ne partent jamais nulle part : elles restent sur le téléphone.
-const CACHE = 'batteries-ve-v15';
+const CACHE = 'batteries-ve-v16';
 const FILES = ['./', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png',
   './msal-browser.min.js', './xlsx-lite.js', './jspdf.umd.min.js', './jspdf.plugin.autotable.min.js', './pdf-lib.min.js'];
