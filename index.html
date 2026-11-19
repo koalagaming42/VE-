@@ -24,6 +24,13 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:16px}
 header{position:sticky;top:0;z-index:10;background:var(--primary);color:#fff;padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;display:flex;align-items:center;gap:10px}
+header{flex-wrap:wrap}
+.odbar{flex-basis:100%;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.14);border-radius:10px;padding:6px 6px 6px 10px;font-size:13px;line-height:1.25;margin-top:2px}
+.odbar[hidden]{display:none}
+.odbar .grow{flex:1}
+.odbar button{border:0;border-radius:8px;font-size:13px;font-weight:700;padding:8px 10px;white-space:nowrap}
+.odbar .yes{background:#fff;color:var(--primary)}
+.odbar .no{background:transparent;color:#fff;opacity:.85;padding:8px 6px}
 header h1{font-size:19px;margin:0;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hbtn{position:relative;background:none;border:0;color:#fff;font-size:22px;padding:4px 8px}
 .back{font-size:26px;line-height:1;padding:0 6px 2px 0}
@@ -90,14 +97,53 @@ body.undo-on .toast{bottom:calc(var(--navh,60px) + 130px)}
 @media (prefers-color-scheme: dark){.alertbar{background:#3a2c10;color:#f3c66b;border-color:#5a4418}.alertbar.bad{background:#3a1d1d;color:#ff8f8f;border-color:#5a2a2a}}
 .odstat{display:flex;align-items:center;gap:8px;font-size:14px;margin:4px 0}
 .check{width:24px;height:24px;flex:none;accent-color:var(--primary)}
+.seg{display:flex;background:var(--chip);border-radius:12px;padding:4px;margin-bottom:10px;gap:4px}
+.seg button{flex:1;border:0;background:none;color:var(--muted);font-weight:700;font-size:15px;padding:10px 6px;border-radius:9px}
+.seg button.on{background:var(--card);color:var(--primary);box-shadow:var(--shadow)}
+details.sec{padding:0 12px}
+details.sec>summary{list-style:none;cursor:pointer;font-weight:700;font-size:16px;padding:14px 0;display:flex;align-items:center}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary::after{content:'›';margin-left:auto;font-size:22px;color:var(--muted);transition:transform .2s}
+details.sec[open]>summary::after{transform:rotate(90deg)}
+details.sec[open]{padding-bottom:12px}
+.vrow{padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.shr{font-style:normal;display:inline-block;font-size:11px;font-weight:700;color:var(--accent,#0f766e);background:rgba(15,118,110,.12);border-radius:6px;padding:0 5px;margin-left:4px;vertical-align:1px}
+.tick{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:11px 0;font-size:14px;color:var(--text)}
+.tick span{width:26px;height:26px;flex:none;border:2px solid var(--line);border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff}
+.tick.on span{background:var(--ok);border-color:var(--ok)}
+.rtab{margin-top:6px}
+.rh,.rr{display:flex;align-items:center;gap:4px}
+.rh{font-size:11px;color:var(--muted);font-weight:700;padding-bottom:4px}
+.rr{border-top:1px solid var(--line);padding:6px 0;font-size:14px;min-height:46px}
+.rr.dim>.grow{color:var(--muted)}
+.ccol{width:46px;flex:none;display:flex;justify-content:center;text-align:center}
+.qcol{width:88px;flex:none;display:flex;justify-content:center;text-align:center}
+.box{width:36px;height:36px;border-radius:9px;border:2px solid var(--line);background:var(--bg);font-weight:800;font-size:17px;color:#fff;padding:0}
+.box.on{background:var(--ok);border-color:var(--ok)}
+.step{display:flex;align-items:center;gap:2px}
+.step button{width:30px;height:34px;border:0;border-radius:8px;background:var(--chip);color:var(--text);font-size:18px;font-weight:700;padding:0}
+.step b{min-width:22px;text-align:center}
+.rname{padding:7px;font-size:14px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.grid4 input{padding:9px 6px;font-size:15px}
+.ess{flex:1;border:2px solid var(--line);background:var(--bg);color:var(--text);border-radius:9px;padding:4px 2px;font-weight:800;font-size:14px;display:flex;flex-direction:column;align-items:center;min-height:44px}
+.ess small{font-size:10px;font-weight:600;color:var(--muted)}
+.ess.ok{background:#e3f4ea;border-color:var(--ok);color:#17703f}
+.ess.nok{background:#fde8e8;border-color:var(--bad);color:var(--bad)}
+@media (prefers-color-scheme: dark){.ess.ok{background:#173a26;color:#7fd8a1}.ess.nok{background:#3a1d1d;color:#ff8f8f}}
+.sigbox{width:100%;height:84px;border:2px dashed var(--line);border-radius:10px;background:var(--bg);color:var(--muted);font-size:14px;padding:4px;display:flex;align-items:center;justify-content:center}
+.sigbox img{max-width:100%;max-height:100%;background:#fff;border-radius:6px}
+.sigcv{width:100%;height:200px;border:2px dashed var(--line);border-radius:12px;background:#fff;touch-action:none;display:block;margin:8px 0}
 </style>
 </head>
 <body>
 
 <header>
-  <button class="hbtn back" id="backBtn" onclick="go('ves')" hidden aria-label="Retour">‹</button>
+  <button class="hbtn back" id="backBtn" onclick="goBack()" hidden aria-label="Retour">‹</button>
   <h1 id="title">🔋 Batteries VE</h1>
   <button class="hbtn" id="odBadge" onclick="go('settings')" aria-label="OneDrive" hidden>☁️<span class="oddot" id="odDot"></span></button>
+  <div class="odbar" id="odBar" hidden><span>☁️</span><div class="grow" id="odBarMsg">Modifications pas encore sauvegardées sur OneDrive</div>
+    <button class="yes" onclick="odSync(true)">Sauvegarder</button><button class="no" onclick="odLater()">Plus tard</button></div>
 </header>
 
 <main id="view"></main>
@@ -105,6 +151,7 @@ body.undo-on .toast{bottom:calc(var(--navh,60px) + 130px)}
 
 <nav>
   <button data-tab="ves" class="active" onclick="go('ves')"><span class="i">📋</span>VE</button>
+  <button data-tab="sites" onclick="go('sites')"><span class="i">🏢</span>Sites</button>
   <button data-tab="bats" onclick="go('bats')"><span class="i">🔋</span>Batteries<span class="badge" id="batBadge" hidden>0</span></button>
   <button data-tab="settings" onclick="go('settings')"><span class="i">⚙️</span>Réglages</button>
 </nav>
@@ -112,6 +159,7 @@ body.undo-on .toast{bottom:calc(var(--navh,60px) + 130px)}
 <div class="sheet-bg" id="sheetBg" onclick="if(event.target===this){closeSheet();render()}"><div class="sheet" id="sheet"></div></div>
 <div class="toast" id="toast"></div>
 <div class="undobar" id="undoBar"><span id="undoMsg"></span><button onclick="undo()">↩️ Annuler</button></div>
+<input type="file" id="impTpl" accept=".pdf,application/pdf" multiple hidden onchange="importTpl([...this.files]);this.value=''">
 <input type="file" id="impJson" accept=".json,application/json" hidden onchange="importData(this.files[0]);this.value=''">
 
 <script src="msal-browser.min.js"></script>
@@ -120,24 +168,26 @@ body.undo-on .toast{bottom:calc(var(--navh,60px) + 130px)}
 <script src="jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ============ Version ============ */
-const APP_VERSION = '1.5';
-const APP_DATE = '16/11/2026';
+const APP_VERSION = '2.0';
+const APP_DATE = '19/11/2026';
 
 /* ============ Données ============ */
 const KEY = 'batteriesVE_v1';
 const CAPS = [2.1, 7, 17, 18, 24, 36];
 // Capacité affichée à la française : 2.1 → « 2,1 »
 const fmtCap = c => (c === null || c === undefined || c === '') ? '?' : String(c).replace('.', ',');
+const MAIL_SUBJECT = '{fiche} – {site} – VE du {date}';
+const MAIL_BODY = 'Bonjour,\n\nVeuillez trouver ci-joint {fiches} de la visite d\'entretien du site {site} ({date}), en deux versions :\n- PDF non modifiable, pour l\'archivage ;\n- PDF modifiable, si une correction est nécessaire.\n\nCordialement,\n{tech}';
 const defaults = () => ({
   sites: [],      // {id, name}
   ves: [],        // {id, siteId, start, end, closed, coffrets:[...], carnet, carnetEdited}
-  settings: {ageYears: 4, warnMonths: 6, tech: '', odClientId: '850f4eca-b80e-4b18-aa2a-33d7855f04bf'}, // appli « BATTERIES VE » chez Microsoft (non secret)
+  settings: {ageYears: 4, warnMonths: 6, tech: '', mailTo: '', mailSubject: MAIL_SUBJECT, mailBody: MAIL_BODY, odClientId: '850f4eca-b80e-4b18-aa2a-33d7855f04bf'}, // appli « BATTERIES VE » chez Microsoft (non secret)
   lastBackup: 0
 });
 function load(){
   try {
     const s = localStorage.getItem(KEY);
-    if (s) { const d = defaults(), saved = JSON.parse(s), st = Object.assign({}, d.settings, saved.settings || {}); if (!st.odClientId) st.odClientId = d.settings.odClientId; return Object.assign(d, saved, {settings: st}); }
+    if (s) { const d = defaults(), saved = JSON.parse(s), st = Object.assign({}, d.settings, saved.settings || {}); if (!st.odClientId) st.odClientId = d.settings.odClientId; if (!st.mailSubject) st.mailSubject = MAIL_SUBJECT; if (!st.mailBody) st.mailBody = MAIL_BODY; return Object.assign(d, saved, {settings: st}); }
   } catch(e){}
   return defaults();
 }
@@ -191,22 +241,33 @@ function batPill(b){
 }
 
 /* ============ Navigation ============ */
-let tab = 'ves', curVe = null;
+let tab = 'ves', curVe = null, curSite = null, fromSite = false;
 function go(t, veId){
-  tab = t; curVe = veId || null;
-  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === (t === 've' ? 'ves' : t)));
+  if (t === 'ves' || t === 'sites' || t === 'bats' || t === 'settings') fromSite = false;
+  if (t === 'site') { if (veId) curSite = veId; fromSite = true; curVe = null; } else curVe = veId || null;
+  tab = t;
+  const navTab = t === 'site' ? 'sites' : (t === 've' || t === 'fiche') ? (fromSite ? 'sites' : 'ves') : t;
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === navTab));
   render(); window.scrollTo(0,0);
+}
+function goBack(){
+  if (tab === 'fiche') { veMode = 'vce'; go('ve', curVe); }
+  else if (tab === 've' && fromSite) { const ve = S.ves.find(v => v.id === curVe); go('site', ve ? ve.siteId : curSite); }
+  else if (tab === 'site') go('sites');
+  else go('ves');
 }
 function render(){
   const ve = curVe && S.ves.find(v => v.id === curVe);
-  if (tab === 've' && !ve) tab = 'ves';
-  $('backBtn').hidden = tab !== 've';
-  $('title').textContent = tab === 've' ? siteName(ve.siteId) : '🔋 Batteries VE';
-  $('fab').style.display = (tab === 'ves' || tab === 've') ? '' : 'none';
-  ({ves: renderVes, ve: () => renderVe(ve), bats: renderBats, settings: renderSettings})[tab]();
+  if ((tab === 've' || tab === 'fiche') && !ve) tab = fromSite ? 'site' : 'ves';
+  const site = tab === 'site' && S.sites.find(x => x.id === curSite);
+  if (tab === 'site' && !site) tab = 'sites';
+  $('backBtn').hidden = !['ve', 'fiche', 'site'].includes(tab);
+  $('title').textContent = tab === 'fiche' ? VCE[curType].short + ' · ' + siteName(ve.siteId) : tab === 've' ? siteName(ve.siteId) : tab === 'site' ? '🏢 ' + site.name : tab === 'sites' ? '🏢 Mes sites' : '🔋 Batteries VE';
+  $('fab').style.display = (tab === 'ves' || tab === 'sites' || tab === 'site' || (tab === 've' && veMode === 'bat')) ? '' : 'none';
+  ({ves: renderVes, ve: () => renderVe(ve), fiche: () => renderFiche(ve), sites: renderSites, site: () => renderSite(site), bats: renderBats, settings: renderSettings})[tab]();
   updateBadges(); odUi();
 }
-function fabAction(){ tab === 've' ? addCoffret() : newVe(); }
+function fabAction(){ tab === 've' ? addCoffret() : tab === 'sites' ? editSite() : tab === 'site' ? newVe(siteName(curSite)) : newVe(); }
 
 /* ============ Liste des VE ============ */
 function veProgress(ve){
@@ -226,7 +287,7 @@ const coffretDone = c => !coffretMissing(c).length;
 function veCard(ve){
   const {n, d} = veProgress(ve);
   const bad = ve.coffrets.reduce((s, c) => s + c.bats.filter(b => batStatus(b) === 'bad').length, 0);
-  return `<div class="card tap" onclick="go('ve','${ve.id}')">
+  return `<div class="card tap" onclick="veMode='bat';go('ve','${ve.id}')">
     <div class="row"><div class="grow">
       <div class="name">${ve.closed ? '✅' : '🟢'} ${esc(siteName(ve.siteId))}</div>
       <div class="sub">${ve.closed ? `Du ${fmtDay(ve.start)} au ${fmtDay(ve.end)}` : `En cours depuis le ${fmtDay(ve.start)}`} · ${n} coffret${n>1?'s':''}${bad ? ` · <b style="color:var(--bad)">${bad} batterie${bad>1?'s':''} à remplacer</b>` : ''}</div>
@@ -246,18 +307,117 @@ function renderVes(){
     ${closed.length ? `<h2>Historique</h2>${closed.slice(0, 40).map(veCard).join('')}` : ''}`;
 }
 
+/* ============ Sites (menu central) ============ */
+let siteQ = '';
+function siteInfo(site){
+  const ves = S.ves.filter(v => v.siteId === site.id).sort((a, b) => b.start - a.start), last = ves[0];
+  const cof = last ? last.coffrets : [], bats = cof.flatMap(c => c.bats);
+  return {ves, last, open: ves.filter(v => !v.closed).length, nA: cof.filter(c => c.type !== 'ca').length, nC: cof.filter(c => c.type === 'ca').length,
+    bad: bats.filter(b => batStatus(b) === 'bad').length, warn: bats.filter(b => batStatus(b) === 'warn').length};
+}
+const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+function siteCard(site){
+  const i = siteInfo(site);
+  return `<div class="card tap" onclick="go('site','${site.id}')">
+    <div class="row"><div class="grow">
+      <div class="name">🏢 ${esc(site.name)}${site.idSite ? ` <span class="pill info">ID ${esc(site.idSite)}</span>` : ''}</div>
+      ${site.client || site.addr ? `<div class="sub">${esc([site.client, site.addr].filter(Boolean).join(' · '))}</div>` : ''}
+      <div class="sub">${i.ves.length} VE${i.last ? ` · dernière le ${fmtDay(i.last.start)}` : ''}${i.nA ? ` · 🚨 ${i.nA}` : ''}${i.nC ? ` · 🚪 ${i.nC}` : ''}</div>
+      <div>${i.open ? '<span class="pill ok">🟢 VE en cours</span>' : ''}${i.bad ? `<span class="pill bad">⚠️ ${i.bad} batterie${i.bad > 1 ? 's' : ''} à remplacer</span>` : ''}${i.warn ? `<span class="pill warn">⏳ ${i.warn} à prévoir</span>` : ''}</div>
+    </div><div style="font-size:22px;color:var(--muted)">›</div></div></div>`;
+}
+function renderSites(){
+  const q = norm(siteQ);
+  const list = S.sites.filter(x => !q || norm([x.name, x.idSite, x.client, x.addr, x.contact].join(' ')).includes(q))
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr', {numeric: true, sensitivity: 'base'}));
+  $('view').innerHTML = `
+    <input id="siteSearch" type="search" placeholder="🔎 Rechercher un site, un ID, un client, une ville…" value="${esc(siteQ)}" oninput="siteQ=this.value;renderSitesList()" style="margin:4px 0 10px">
+    <div id="sitesList">${sitesListHtml(list)}</div>`;
+}
+function sitesListHtml(list){
+  if (!S.sites.length) return `<div class="card empty">Aucun site pour l'instant.<br>Ils se créent tout seuls quand tu démarres une VE, ou avec le bouton +.<br><button class="btn primary block" onclick="editSite()">+ Ajouter un site</button></div>`;
+  return `<div class="sub" style="margin:0 2px 6px">${list.length} site${list.length > 1 ? 's' : ''}</div>` + (list.map(siteCard).join('') || '<div class="card empty">Aucun site ne correspond.</div>');
+}
+function renderSitesList(){
+  const q = norm(siteQ);
+  $('sitesList').innerHTML = sitesListHtml(S.sites.filter(x => !q || norm([x.name, x.idSite, x.client, x.addr, x.contact].join(' ')).includes(q)).sort((a, b) => a.name.localeCompare(b.name, 'fr', {numeric: true, sensitivity: 'base'})));
+}
+function renderSite(site){
+  const i = siteInfo(site), last = i.last;
+  const fiches = v => ['08', '11'].filter(t => ficheOf(v.id, t)).map(t => `<span class="pill info">📝 ${VCE[t].short}</span>`).join('');
+  $('view').innerHTML = `
+    <div class="card">
+      <div class="row"><div class="grow">
+        <div class="name" style="font-size:18px">🏢 ${esc(site.name)}</div>
+        ${site.idSite ? `<div class="sub">ID site : <b>${esc(site.idSite)}</b></div>` : ''}
+        ${site.client ? `<div class="sub">Client : ${esc(site.client)}</div>` : ''}
+        ${site.addr ? `<div class="sub">📍 ${esc(site.addr)}</div>` : ''}
+        ${site.contact ? `<div class="sub">👤 ${esc(site.contact)}</div>` : ''}
+        ${site.note ? `<div class="sub">📝 ${esc(site.note)}</div>` : ''}
+      </div><button class="btn small" onclick="editSite('${site.id}')">✏️ Modifier</button></div>
+      ${site.addr ? `<a class="btn block" style="display:block;text-align:center;text-decoration:none;margin-top:10px;box-sizing:border-box" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(site.addr)}" target="_blank" rel="noopener">🧭 Itinéraire</a>` : ''}
+      <button class="btn primary block" onclick="newVe(${esc(JSON.stringify(site.name))})">+ Nouvelle VE sur ce site</button>
+    </div>
+    ${last ? `<div class="card">
+      <div class="name">🔋 Installation (dernière VE du ${fmtDay(last.start)})</div>
+      <div class="sub">${last.coffrets.length} coffret${last.coffrets.length > 1 ? 's' : ''}${i.nA ? ` · 🚨 ${i.nA} alarme` : ''}${i.nC ? ` · 🚪 ${i.nC} contrôle d'accès` : ''}</div>
+      ${last.coffrets.map(c => `<div class="row" style="border-top:1px solid var(--line);padding:7px 0;align-items:flex-start"><div style="width:22px">${typeIcon(c.type)}</div><div class="grow"><div style="font-size:14px;font-weight:600">${esc(c.label || 'Coffret')}${c.loc ? ` <span class="sub">· ${esc(c.loc)}</span>` : ''}</div><div>${c.bats.map(batPill).join('') || '<span class="pill info">aucune batterie</span>'}</div></div></div>`).join('')}
+    </div>` : ''}
+    <h2>VE de ce site (${i.ves.length})</h2>
+    ${i.ves.map(v => {
+      const {n, d} = veProgress(v), rep = v.coffrets.reduce((s, c) => s + c.bats.filter(b => b.replaced).length, 0);
+      return `<div class="card tap" onclick="veMode='bat';go('ve','${v.id}')">
+        <div class="row"><div class="grow">
+          <div class="name">${v.closed ? '✅' : '🟢'} ${v.closed ? `VE du ${fmtDay(v.start)} au ${fmtDay(v.end)}` : `VE en cours depuis le ${fmtDay(v.start)}`}</div>
+          <div class="sub">${d}/${n} coffret${n > 1 ? 's' : ''} relevé${d > 1 ? 's' : ''}${rep ? ` · 🔁 ${rep} batterie${rep > 1 ? 's' : ''} remplacée${rep > 1 ? 's' : ''}` : ''}</div>
+          <div>${fiches(v)}</div>
+        </div><div style="font-size:22px;color:var(--muted)">›</div></div></div>`;
+    }).join('') || '<div class="card empty">Aucune VE sur ce site pour l\'instant.</div>'}
+    <button class="btn block" style="color:var(--bad);margin-top:14px" onclick="deleteSite('${site.id}')">🗑 Supprimer ce site</button>`;
+}
+function editSite(id){
+  const site = id ? S.sites.find(x => x.id === id) : {};
+  const f = (k, l, ph, extra) => `<label>${l}</label><input id="es_${k}" value="${esc(site[k] || '')}" placeholder="${ph}" ${extra || ''}>`;
+  openSheet(`<h3>${id ? '✏️ Modifier le site' : '🏢 Nouveau site'}</h3>
+    ${f('name', 'Nom du site', 'ex. Résidence Les Tilleuls')}
+    <div class="grid2"><div>${f('idSite', 'ID site', 'ex. S-0098')}</div><div>${f('client', 'Client', 'ex. AS24')}</div></div>
+    ${f('addr', 'Adresse', 'ex. 12 rue des Lilas, Loudéac')}
+    ${f('contact', 'Contact sur place', 'ex. M. Durand · 06…')}
+    <label>Note</label><textarea id="es_note" placeholder="Accès, horaires, parking…">${esc(site.note || '')}</textarea>
+    <div class="hint">🔒 Ne note pas de codes d'accès, codes installateur ou digicodes ici.</div>
+    <button class="btn primary block" onclick="saveSite(${id ? `'${id}'` : ''})">Enregistrer</button>
+    <button class="btn block" onclick="closeSheet()">Annuler</button>`);
+  if (!id) setTimeout(() => $('es_name') && $('es_name').focus(), 60);
+}
+function saveSite(id){
+  const v = k => $('es_' + k).value.trim(), name = v('name');
+  if (!name) return toast('Indique le nom du site');
+  const dup = S.sites.find(x => x.id !== id && x.name.toLowerCase() === name.toLowerCase());
+  if (dup) return toast('Un site porte déjà ce nom');
+  let site = id && S.sites.find(x => x.id === id);
+  if (!site) { site = {id: uid()}; S.sites.push(site); }
+  ['name', 'idSite', 'client', 'addr', 'contact', 'note'].forEach(k => { const x = v(k); if (x) site[k] = x; else if (k !== 'name') delete site[k]; });
+  site.name = name; save(); closeSheet(); go('site', site.id); toast(id ? 'Site enregistré' : 'Site créé');
+}
+function deleteSite(id){
+  const n = S.ves.filter(v => v.siteId === id).length;
+  if (!confirm(n ? `Supprimer ce site et ses ${n} VE (mesures comprises) ?` : 'Supprimer ce site ?')) return;
+  snapshot(); // les fiches VCE liées restent en mémoire : « Annuler » restaure tout
+  S.sites = S.sites.filter(x => x.id !== id); S.ves = S.ves.filter(v => v.siteId !== id); save(); go('sites'); offerUndo('Site supprimé');
+}
+
 /* ============ Nouvelle VE ============ */
-function newVe(){
+function newVe(preset){
   openSheet(`<h3>Nouvelle VE</h3>
     <label>Site</label>
-    <input id="nvSite" list="siteList" placeholder="ex. Résidence Les Tilleuls" autocomplete="off">
+    <input id="nvSite" list="siteList" placeholder="ex. Résidence Les Tilleuls" autocomplete="off" value="${esc(preset || '')}">
     <datalist id="siteList">${S.sites.slice().sort((a,b)=>a.name.localeCompare(b.name,'fr')).map(s => `<option value="${esc(s.name)}">`).join('')}</datalist>
     <div class="hint">Si le site existe déjà, ses coffrets et batteries sont repris automatiquement : il ne reste qu'à saisir les mesures.</div>
     <label>Date de début</label>
     <input id="nvDate" type="date" value="${dayInput(Date.now())}">
     <button class="btn primary block" onclick="createVe()">Démarrer la VE</button>
     <button class="btn block" onclick="closeSheet()">Annuler</button>`);
-  setTimeout(() => $('nvSite') && $('nvSite').focus(), 60);
+  if (!preset) setTimeout(() => $('nvSite') && $('nvSite').focus(), 60);
 }
 function createVe(){
   const name = $('nvSite').value.trim(); if (!name) return toast('Indique le nom du site');
@@ -267,9 +427,9 @@ function createVe(){
   // Reprise de la dernière VE du site
   const prev = S.ves.filter(v => v.siteId === site.id).sort((a,b) => b.start - a.start)[0];
   const coffrets = prev ? prev.coffrets.map(c => ({id: uid(), label: c.label, loc: c.loc, type: c.type,
-    bats: c.bats.map(b => ({id: uid(), cap: b.cap, pose: b.pose, replaced: false})), vOn: '', vOff: '', conso: '', unit: c.unit || 'mA', note: ''})) : [];
+    bats: c.bats.map(b => ({id: uid(), cap: b.cap, pose: b.pose, replaced: false})), vOn: '', vOff: '', vFin: '', conso: '', unit: c.unit || 'mA', note: ''})) : [];
   const ve = {id: uid(), siteId: site.id, start, end: null, closed: false, coffrets, carnet: '', carnetEdited: false};
-  S.ves.push(ve); save(); closeSheet(); go('ve', ve.id);
+  S.ves.push(ve); save(); closeSheet(); veMode = 'bat'; go('ve', ve.id);
   toast(prev ? `${coffrets.length} coffret${coffrets.length>1?'s':''} repris de la VE du ${fmtDay(prev.start)}` : 'VE démarrée : ajoute tes coffrets avec +');
 }
 
@@ -283,13 +443,15 @@ function coffretCard(ve, c, i){
       ${done ? '' : `<div class="sub" style="color:var(--warn);font-weight:600">Manque : ${coffretMissing(c).join(', ')}</div>`}
     </div><div style="font-size:22px;color:var(--muted)">›</div></div>
     <div>${c.bats.length ? c.bats.map(b => batPill(b) + (b.replaced ? '<span class="pill info">🔁 remplacée</span>' : '')).join('') : '<span class="pill info">aucune batterie</span>'}</div>
-    ${done || c.vOn || c.vOff || c.conso ? `<div class="meas"><span>⚡ ${fmtNum(c.vOn) || '–'} V</span><span>🔌 ${fmtNum(c.vOff) || '–'} V</span><span>➰ ${fmtNum(c.conso) || '–'} ${c.unit}</span></div>` : ''}
+    ${done || c.vOn || c.vOff || c.conso ? `<div class="meas"><span>⚡ ${fmtNum(c.vOn) || '–'} V</span><span>🔌 ${fmtNum(c.vOff) || '–'} V</span>${num(c.vFin) !== null ? `<span>🏁 ${fmtNum(c.vFin)} V</span>` : ''}<span>➰ ${fmtNum(c.conso) || '–'} ${c.unit}</span></div>` : ''}
     ${c.note ? `<div class="sub">📝 ${esc(c.note)}</div>` : ''}
   </div>`;
 }
 function renderVe(ve){
   const {n, d} = veProgress(ve);
-  $('view').innerHTML = `
+  const seg = `<div class="seg"><button class="${veMode === 'bat' ? 'on' : ''}" onclick="veMode='bat';render()">🔋 Batteries</button><button class="${veMode === 'vce' ? 'on' : ''}" onclick="veMode='vce';render()">📝 Fiche VCE</button></div>`;
+  if (veMode === 'vce') { $('view').innerHTML = seg + vceTabHtml(ve); return; }
+  $('view').innerHTML = seg + `
     <div class="card">
       <div class="sub">${ve.closed ? `✅ Clôturée · du ${fmtDay(ve.start)} au ${fmtDay(ve.end)}` : `🟢 En cours depuis le ${fmtDay(ve.start)}`}</div>
       ${n ? `<div class="prog"><div style="width:${Math.round(d/n*100)}%"></div></div><div class="sub">${d}/${n} coffret${n>1?'s':''} relevé${d>1?'s':''}</div>` : ''}
@@ -335,7 +497,8 @@ function closeVe(id){
 function reopenVe(id){ const ve = S.ves.find(v => v.id === id); snapshot(); ve.closed = false; save(); render(); offerUndo('VE rouverte'); }
 function deleteVe(id){
   if (!confirm('Supprimer cette VE et toutes ses mesures ?')) return;
-  snapshot(); S.ves = S.ves.filter(v => v.id !== id); save(); go('ves'); offerUndo('VE supprimée');
+  const sid = (S.ves.find(v => v.id === id) || {}).siteId;
+  snapshot(); S.ves = S.ves.filter(v => v.id !== id); save(); fromSite ? go('site', sid) : go('ves'); offerUndo('VE supprimée');
 }
 
 /* ============ Coffret ============ */
@@ -343,7 +506,7 @@ let curC = null;
 const getC = () => { const ve = S.ves.find(v => v.id === curVe); return ve && ve.coffrets.find(c => c.id === curC); };
 function addCoffret(){
   const ve = S.ves.find(v => v.id === curVe); if (!ve) return;
-  const c = {id: uid(), label: '', loc: '', type: 'alarme', bats: [{id: uid(), cap: null, pose: '', replaced: false}], vOn: '', vOff: '', conso: '', unit: 'mA', note: ''};
+  const c = {id: uid(), label: '', loc: '', type: 'alarme', bats: [{id: uid(), cap: null, pose: '', replaced: false}], vOn: '', vOff: '', vFin: '', conso: '', unit: 'mA', note: ''};
   ve.coffrets.push(c); save(); render(); editCoffret(c.id, true);
 }
 function editCoffret(id, isNew){
@@ -363,6 +526,8 @@ function editCoffret(id, isNew){
       <div><label style="margin-top:0">Sous tension (V)</label><input inputmode="decimal" value="${esc(fmtNum(c.vOn))}" placeholder="ex. 13,6" oninput="setC('vOn', this.value)"></div>
       <div><label style="margin-top:0">Hors tension (V)</label><input inputmode="decimal" value="${esc(fmtNum(c.vOff))}" placeholder="ex. 12,7" oninput="setC('vOff', this.value)"></div>
     </div>
+    <label>Bat. fin (V) · facultatif</label>
+    <input inputmode="decimal" value="${esc(fmtNum(c.vFin || ''))}" placeholder="fin de test secteur coupé, ex. 12,4" oninput="setC('vFin', this.value)">
     <label>Consommation</label>
     <div class="row">
       <input class="grow" inputmode="decimal" value="${esc(fmtNum(c.conso))}" placeholder="ex. 450" oninput="setC('conso', this.value)">
@@ -430,7 +595,7 @@ function batLine(b){
 function coffretText(c, i){
   return `[${i+1}] ${c.label || 'Coffret ' + (i+1)} – ${typeLabel(c.type)}${c.loc ? ' – ' + c.loc : ''}\n`
     + `Batterie${c.bats.length>1?'s':''} : ${c.bats.length ? c.bats.map(batLine).join(' + ') : 'aucune'}\n`
-    + `Sous tension : ${fmtNum(c.vOn) || '–'} V | Hors tension : ${fmtNum(c.vOff) || '–'} V | Conso : ${fmtNum(c.conso) || '–'} ${c.unit}`
+    + `Sous tension : ${fmtNum(c.vOn) || '–'} V | Hors tension : ${fmtNum(c.vOff) || '–'} V${num(c.vFin) !== null ? ` | Bat. fin : ${fmtNum(c.vFin)} V` : ''} | Conso : ${fmtNum(c.conso) || '–'} ${c.unit}`
     + (c.note ? `\nRemarque : ${c.note}` : '');
 }
 function recapText(ve){
@@ -623,6 +788,654 @@ async function odSavePdf(blob, name){
   } catch(e) { if ($('pdfOd')) $('pdfOd').textContent = '☁️ Copie OneDrive impossible pour l\'instant : ' + odErrText(e); }
 }
 
+/* ============ Fiches VCE (100 % local) ============
+   - Les réponses des fiches sont enregistrées uniquement sur ce téléphone (clé séparée, jamais envoyée sur OneDrive).
+   - Les fiches vierges (PDF de l'entreprise) sont choisies par le technicien et gardées dans la mémoire locale (IndexedDB).
+   - Le PDF rempli est fabriqué sur le téléphone ; il ne sort que si le technicien le partage lui-même. */
+const FKEY = 'batteriesVE_fiches_v1';
+let FICHES = (() => { try { return JSON.parse(localStorage.getItem(FKEY)) || {}; } catch(e){ return {}; } })();
+function saveFiches(){ try { localStorage.setItem(FKEY, JSON.stringify(FICHES)); } catch(e){ toast('⚠️ Mémoire du téléphone pleine : fiche non enregistrée'); } }
+
+// --- Description des deux fiches : libellé affiché dans l'appli → nom du champ dans le PDF ---
+const ROWS_VFA = ['Visuel', 'Fonct.', 'AP'];
+const VCE = {
+  '08': {
+    short: 'VCE 08', title: 'VCE 08 · Intrusion', ctype: 'alarme', icon: '🚨',
+    detect: 'Perif AP 1',
+    fixed: ['Centrale', 'Transmetteur principal', 'Transmetteur secours'], alimMax: 8, hasRef: false,
+    alim: n => ({loc: n >= 4 ? 'Transmetteur secours' + n : null, ref: null, ch: 'Charge batt ' + n, deb: 'batt debut ' + n, fin: 'batt fin ' + n, conso: 'batt conso ' + n}),
+    page: ['Page 1/', 'Page /1'],
+    sig: {client: [120, 31, 195, 25], tech: [372, 31, 135, 25]},
+    sections: [
+      {id: 'inter', t: '📋 Intervention', items: [
+        {t: 'date', k: 'date', l: 'Date', pdf: 'Date1_af_date'},
+        {t: 'pair', items: [{t: 'text', k: 'inter', l: 'ID Inter', pdf: 'ID INTER'}, {t: 'text', k: 'site', l: 'ID Site', pdf: 'ID SITE'}]},
+        {t: 'text', k: 'client', l: 'Client', pdf: 'Client'},
+        {t: 'seg', k: 'type', l: 'Type d\'intervention', opts: [['MES', 'MES', 'VE'], ['VE', 'VE', 'FIVCE08V090622']]},
+        {t: 'yn', k: 'modif', l: 'Si VE · Modification site / risque depuis la dernière visite', o: 'Oui', n: 'Non'},
+        {t: 'chk', k: 'interv', l: 'Intervention technique', pdf: 'Intervention technique'},
+        {t: 'chk', k: 'pbexp', l: 'Problème d\'exploitation', pdf: 'Problème dexploitation'},
+        {t: 'sub', l: 'Si MES · Vérification générale'},
+        {t: 'chk', k: 'disp', l: 'Dispositifs de commande accessibles', pdf: 'Dispositifs de commande accessibles'},
+        {t: 'chk', k: 'pose', l: 'Pose et fixation matériel', pdf: 'Pose et fixation matériel'},
+        {t: 'chk', k: 'cabl', l: 'Câblage conforme', pdf: 'Câblage conforme'},
+        {t: 'text', k: 'autres', l: 'Autres informations', pdf: 'Autres informations'}]},
+      {id: 'central', t: '🖥️ Centralisation', items: [
+        {t: 'text', k: 'marque', l: 'Marque', pdf: 'Centralisation'},
+        {t: 'pair', items: [{t: 'text', k: 'ref', l: 'Réf. fab.', pdf: 'Reffab'}, {t: 'text', k: 'version', l: 'Version logicielle', pdf: 'Version logicielle'}]},
+        {t: 'pair', items: [{t: 'num', k: 'nbG', l: 'Nb groupes', pdf: 'Nb Groupes'}, {t: 'num', k: 'nbZ', l: 'Nb zones', pdf: 'Nb Zones'}]},
+        {t: 'chk', k: 'heure', l: 'Contrôle de la mise à l\'heure centrale', pdf: 'mise a l heure'},
+        {t: 'yn', k: 'codes', l: 'Codes / mots de passe par défaut modifiés', o: 'Oui_2', n: 'Non_2'},
+        {t: 'yn', k: 'tempo', l: 'Tempo entrée / sortie < 45 s', o: 'Oui_3', n: 'Non_3'},
+        {t: 'yn', k: 'sousdet', l: 'Centrale / clavier / extension sous détection volumétrique', o: 'centrale sous detection OUI', n: 'centrale sous detection NON'},
+        {t: 'yn', k: 'dep230', l: 'Départ 230 V exclusif à l\'installation', o: 'Depart 230 V Exclusif OUI', n: 'Depart 230 V Exclusif NON'}]},
+      {id: 'alim', t: '🔋 Alimentations', items: [{t: 'alims'},
+        {t: 'yn', k: 'cohPrev', l: 'Valeurs cohérentes avec les mesures précédentes', o: 'oui', n: 'non'},
+        {t: 'yn', k: 'cohCalc', l: 'Valeurs cohérentes avec les calculs effectués', o: 'oui_2', n: 'non_2'}]},
+      {id: 'centrale', t: '🧠 Centrale & iNode', items: [
+        {t: 'rows', k: 'cn', cols: ['Visuel', 'Autoprot.', 'Fonct.', 'Firmware', 'Certif. @ / VPN'], rows: [
+          {k: 'centrale', l: 'Centrale', c: ['undefined', 'Autoprotection', 'undefined_2', 'Firmware à jour', 'undefined_3']},
+          {k: 'inode', l: 'iNode', c: ['undefined_4', 'Autoprotection_2', 'undefined_5', 'Firmware à jour_2', 'VPN']}]}]},
+      {id: 'perif', t: '⌨️ Périphériques', items: [
+        {t: 'rows', k: 'pe', q: true, cols: ROWS_VFA, rows: [
+          {k: 'clavier', l: 'Clavier', q: 'QtéClavier', c: ['Perif etat visuel 1', 'Perif fonctionnel 1', 'Perif AP 1']},
+          {k: 'lecteur', l: 'Lecteur MES/MHS', q: 'QtéLecteur MESMHS', c: ['Perif etat visuel 2', 'Perif fonctionnel 2', 'Perif AP 2']},
+          {k: 'modbus', l: 'Module bus « ouvre-porte »', q: 'QtéModule bus  ouvreporte', c: ['Perif etat visuel 3', 'Perif fonctionnel 3', 'Perif AP 3']},
+          {k: 'alims', l: 'Alimentations supplétives', q: 'QtéAlimentation supplétives', c: ['Perif etat visuel 4', 'Perif fonctionnel 4', 'Perif AP 4']},
+          {k: 'radio', l: 'Module radio', q: 'QtéModule radio', c: ['Perif etat visuel 5', 'Perif fonctionnel 5', 'Perif AP 5']}]}]},
+      {id: 'diss', t: '📢 Dissuasion', items: [
+        {t: 'rows', k: 'di', q: true, cols: ROWS_VFA, rows: [
+          {k: 'sirext', l: 'Sirène extérieure', q: 'QtéSirène extérieure', c: ['Dissuasion etat visuel 1', 'Dissuasion fonctionnel 1', 'Dissuasion AP 1']},
+          {k: 'sirint', l: 'Sirène intérieure', q: 'QtéSirène intérieure', c: ['Dissuasion etat visuel 2', 'Dissuasion fonctionnel 2', 'Dissuasion AP 2']},
+          {k: 'flash', l: 'Alarme lumineuse', q: 'QtéAlarme lumineuse', c: ['Dissuasion etat visuel 3', 'Dissuasion fonctionnel 3', 'Dissuasion AP 3']},
+          {k: 'brouil', l: 'Générateur de brouillard', q: 'QtéGénérateur de brouillard', c: ['Dissuasion etat visuel 4', 'Dissuasion fonctionnel 4', 'Dissuasion AP 4']},
+          {k: 'micro', l: 'Microphone / interpellation', q: 'QtéMicrophone interpellation', c: ['Dissuasion etat visuel 5', 'Dissuasion fonctionnel 5', 'DissuasionAP 5']}]}]},
+      {id: 'volu', t: '👁️ Détecteurs volumétriques', items: [
+        {t: 'rows', k: 'vo', q: true, cols: ROWS_VFA, rows: [
+          {k: 'ir', l: 'Détecteur infrarouge', q: 'Détecteur infrarouge', c: ['Volu etat visuel 1', 'Volu fonctionnel 1', 'Volu AP 1']},
+          {k: 'bivol', l: 'Détecteur bi-volumétrique', q: 'Détecteur bivolumétrique', c: ['Volu etat visuel 2', 'Volu fonctionnel 2', 'Volu AP 2']},
+          {k: 'am', l: 'Fonction AM dét. volumétrique', q: 'Fonction AM détvolumétrique', c: ['Volu etat visuel 3', 'Volu fonctionnel 3', 'Volu AP 3']},
+          {k: 'barr', l: 'Barrière IR / hyperfréquence', q: 'Barrière IR  hyperfréquence', c: ['Volu etat visuel 4', 'Volu fonctionnel 4', 'Volu AP 4']},
+          {k: 'vradio', l: 'Détecteur radio', q: 'Détecteur radio_2', c: ['Volu etat visuel 5', 'Volu fonctionnel 5', 'Volu AP 5']}]}]},
+      {id: 'ouv', t: '🚪 Ouverture · IA', items: [
+        {t: 'rows', k: 'ou', q: true, cols: ROWS_VFA, rows: [
+          {k: 'do', l: 'Détecteur d\'ouverture', q: 'Détecteur douverture_2', c: ['DO etat visuel 1', 'DO fonctionnel 1', 'DO AP 1']},
+          {k: 'sabot', l: 'Sabot', q: 'Sabot', c: ['DO etat visuel 2', 'DO fonctionnel 2', 'DO AP 2']},
+          {k: 'oradio', l: 'Détecteur radio', q: 'Détecteur radio', c: ['DO etat visuel 3', 'DO fonctionnel 3', 'DO AP 3']},
+          {k: 'ianalyst', l: 'Détecteur IA · iAnalyst', q: 'Détecteur IA ianalyst', c: ['DO etat visuel 5', 'DO fonctionnel 5', 'DO AP 5']}]}]},
+      {id: 'choc', t: '💥 Détecteurs de choc', items: [
+        {t: 'rows', k: 'ch', q: true, cols: ROWS_VFA, rows: [
+          {k: 'sism', l: 'Détecteur sismique', q: 'Détecteur sismique', c: ['Choc etat visuel 2', 'Choc fonctionnel 2', 'Choc AP 2']},
+          {k: 'inert', l: 'Détecteur inertiel', q: 'Détecteur inertiel', c: ['Choc etat visuel 3', 'Choc fonctionnel 3', 'Choc AP 3']},
+          {k: 'bris', l: 'Détecteur de bris de vitre', q: 'Détecteur de bris de vitre', c: ['Choc etat visuel 4', 'Choc fonctionnel 4', 'Choc AP 4']},
+          {k: 'clot', l: 'Détecteur de clôture / parois', q: 'Détection de clôture  parois', c: ['Choc etat visuel 5', 'Choc fonctionnel 5', 'Choc AP 5']}]}]},
+      {id: 'autres', t: '➕ Autres équipements', items: [
+        {t: 'rows', k: 'au', q: true, named: true, cols: ROWS_VFA, rows: [
+          {k: 'autre1', l: 'Autre 1', name: 'Autres 1', q: 'Qte autres 1', c: ['autres 1 visuel', 'autres 1 fct', 'Autres 1 AP']},
+          {k: 'autre2', l: 'Autre 2', name: 'Autres 2', q: 'Qte autres 2', c: ['autres 2 visuel', 'autres 2 fct', 'Autres 2 AP']}]}]},
+      {id: 'trans', t: '📡 Transmission', items: [
+        {t: 'rows', k: 'tr', noall: true, cols: ['IP', 'GSM', 'RTC'], rows: [
+          {k: 'princ', l: 'Principale', c: ['Principale IP', 'Principale GSM', 'Principale RTC']},
+          {k: 'second', l: 'Secondaire', c: ['secondaire IP', 'secondaire GSM', 'secondaire RTC']},
+          {k: 'essal', l: 'Essai alarme', c: ['Essai alarme IP', 'Essai alarme GSM', 'Essai alarme RTC']},
+          {k: 'esstc', l: 'Essai test cyclique', c: ['Essai TC IP', 'Essai TC GSM', 'Essai TC RTC']}]},
+        {t: 'yn', k: 'defTr', l: 'Défauts transmis supports com', o: 'Oui_4', n: 'Non_4'},
+        {t: 'yn', k: 'defSys', l: 'Essais défauts système (bus…)', o: 'Oui_5', n: 'Non_5'}]},
+      {id: 'num', t: '🛡️ Sûreté numérique', items: [
+        {t: 'chk', k: 'sousCtrl', l: 'Sous contrôle de l\'exploitant (dans ce cas, ne pas remplir le tableau)', pdf: 'Sous controle'},
+        {t: 'rows', k: 'sn', cols: ['Fct.', 'Firmware', 'MDP modifié', 'Certificat'], rows: [
+          {k: 'pfres', l: 'Pare-feu réseau', c: ['Pare feu reseau fonctionnel', 'Pare feu reseau firware', 'Pare feu reseau mdp', null]},
+          {k: 'pfloc', l: 'Pare-feu local (serveur, PC)', c: ['Pare feu local fonctionnel', 'Pare feu local firware', 'Pare feu local mdp', null]},
+          {k: 'switch', l: 'Switchs manageables', c: ['switch fonctionnel', 'switch reseau firware', 'switch mdp', 'switch certificat']}]}]},
+      {id: 'fin', t: '✅ Fin des essais', items: [
+        {t: 'chk', k: 'f230', l: 'Secteur 230 V rétabli', pdf: 'Secteur 230 V rétabli'},
+        {t: 'chk', k: 'scelles', l: 'Scellés remis', pdf: 'Scéllés remis'},
+        {t: 'chk', k: 'livret', l: 'Livret d\'entretien renseigné', pdf: 'Livret dentretien renseigné'},
+        {t: 'allfin'}]},
+      {id: 'obs', t: '✍️ Observations & signatures', items: [
+        {t: 'area', k: 'obs', l: 'Observations complémentaires / propositions d\'amélioration', pdf: 'Observations complémentaires  propositions damélioration'},
+        {t: 'pair', items: [{t: 'text', k: 'nomClient', l: 'Nom client', pdf: 'Nom client'}, {t: 'text', k: 'fctClient', l: 'Fonction client', pdf: 'Fct client'}]},
+        {t: 'text', k: 'nomTech', l: 'Nom technicien', pdf: 'Nom tech'},
+        {t: 'sigs'}]}
+    ]
+  },
+  '11': {
+    short: 'VCE 11', title: 'VCE 11 · Contrôle d\'accès', ctype: 'ca', icon: '🚪',
+    detect: 'NRow1',
+    fixed: [], alimMax: 8, hasRef: true, lecMax: 20,
+    alim: n => ({loc: 'Localisation' + n, ref: 'Référence' + n, ch: 'Chargeur' + n, deb: 'Batterie debut' + n, fin: (n === 2 || n === 4 ? 'Batterie  fin' : 'Batterie fin') + n, conso: 'Consommation' + n}),
+    lec: n => ({n: 'NRow' + n, loc: 'LocalisationRow' + n, type: 'TypeRow' + n, tete: 'TêteRow' + n, bp: 'BPDetRow' + n, dm: 'DMRow' + n, do: 'DORow' + n, v: 'Tension ' + n}),
+    page: ['Page x/', 'Page /x'],
+    sig: {client: 'Signature client', tech: 'Signature tech'},
+    sections: [
+      {id: 'inter', t: '📋 Intervention', items: [
+        {t: 'date', k: 'date', l: 'Date', pdf: 'Date1_af_date'},
+        {t: 'pair', items: [{t: 'text', k: 'inter', l: 'ID Inter', pdf: 'ID INTER'}, {t: 'text', k: 'site', l: 'ID Site', pdf: 'ID Site'}]},
+        {t: 'text', k: 'client', l: 'Client', pdf: 'undefined_2'},
+        {t: 'seg', k: 'type', l: 'Type d\'intervention', opts: [['MES', 'MES', 'MES'], ['VE', 'VE', 'VE']]},
+        {t: 'yn', k: 'modif', l: 'Si VE · Modification site / risque depuis la dernière visite', o: 'Modification risque oui', n: 'Modification risque non'},
+        {t: 'chk', k: 'interv', l: 'Intervention technique', pdf: 'Intervention technique'},
+        {t: 'chk', k: 'pbexp', l: 'Problème d\'exploitation', pdf: 'Pb exploitation'},
+        {t: 'sub', l: 'Si MES · Vérification générale'},
+        {t: 'chk', k: 'disp', l: 'Dispositifs de commande accessibles', pdf: 'Dispositif accessible'},
+        {t: 'chk', k: 'pose', l: 'Pose et fixation matériel', pdf: 'Pose et fixation'},
+        {t: 'chk', k: 'cabl', l: 'Câblage conforme', pdf: 'Cablage conforme'}]},
+      {id: 'central', t: '🖥️ Centralisation', items: [
+        {t: 'text', k: 'marque', l: 'Marque', pdf: 'undefined_3'},
+        {t: 'pair', items: [{t: 'text', k: 'ref', l: 'Réf.', pdf: 'Réf'}, {t: 'text', k: 'version', l: 'Version logicielle', pdf: 'Version logicielle'}]},
+        {t: 'text', k: 'marquePC', l: 'Marque PC', pdf: 'undefined_4'},
+        {t: 'pair', items: [{t: 'text', k: 'refPC', l: 'Réf. PC', pdf: 'Réf_2'}, {t: 'text', k: 'versionPC', l: 'Version logicielle PC', pdf: 'Version logicielle_2'}]},
+        {t: 'chk', k: 'heure', l: 'Contrôle de la mise à l\'heure', pdf: 'Heure'}]},
+      {id: 'alim', t: '🔋 Alimentations', items: [{t: 'alims'},
+        {t: 'yn', k: 'cohPrev', l: 'Valeurs cohérentes avec les mesures précédentes', o: 'Mesure precedente OUI', n: 'Mesure precedente NON'},
+        {t: 'yn', k: 'cohCalc', l: 'Valeurs cohérentes avec les calculs effectués', o: 'Mesures effectuées OUI', n: 'Mesures effectuées NON'}]},
+      {id: 'lect', t: '🪪 Lecteurs', items: [{t: 'lecteurs'}]},
+      {id: 'fin', t: '✅ Fin des essais', items: [
+        {t: 'chk', k: 'f230', l: 'Secteur 230 V rétabli', pdf: 'Secteur 230 V rétabli'},
+        {t: 'chk', k: 'config', l: 'Configuration des accès rétablie', pdf: 'Configuration des accès rétablie'},
+        {t: 'chk', k: 'livret', l: 'Livret d\'entretien renseigné', pdf: 'Livret dentretien renseigné'},
+        {t: 'allfin'}]},
+      {id: 'obs', t: '✍️ Observations & signatures', items: [
+        {t: 'area', k: 'obs', l: 'Observations complémentaires / propositions d\'amélioration', pdf: 'Observations complémentaire'},
+        {t: 'pair', items: [{t: 'text', k: 'nomClient', l: 'Nom client', pdf: 'Nom client'}, {t: 'text', k: 'fctClient', l: 'Fonction client', pdf: 'Fct client'}]},
+        {t: 'text', k: 'nomTech', l: 'Nom technicien', pdf: 'Nom tech'},
+        {t: 'sigs'}]}
+    ]
+  }
+};
+const LEC_TYPES = ['Badge', 'Clavier', 'Badge + clavier', 'Biométrique', 'Longue portée', 'Interphone'];
+const ESSAIS = [['tete', 'Tête'], ['bp', 'BP/Dét'], ['dm', 'DM'], ['do', 'DO']];
+// Ce qui est repris de la dernière fiche du même site (installation identique d'une visite à l'autre)
+const STABLE = ['site', 'client', 'marque', 'ref', 'version', 'nbG', 'nbZ', 'marquePC', 'refPC', 'versionPC', 'nomClient', 'fctClient'];
+
+// --- Accès aux fiches ---
+let curType = '08', veMode = 'bat', openSec = new Set(['inter']);
+const ficheOf = (veId, type) => (FICHES[veId] || {})[type];
+function getFiche(ve, type, create){
+  let f = ficheOf(ve.id, type);
+  if (!f && create) {
+    const st = S.sites.find(x => x.id === ve.siteId) || {};
+    f = {v: {date: dayInput(ve.end || Date.now()), type: 'VE', client: st.client || siteName(ve.siteId), site: st.idSite || undefined, nomTech: S.settings.tech || ''}, alims: VCE[type].fixed.map(l => ({id: uid(), fixed: l})), lecteurs: [], unlinked: [], upd: Date.now()};
+    const other = ficheOf(ve.id, otherType(type));
+    if (other) SHARED.forEach(k => { if (other.v[k] !== undefined) f.v[k] = other.v[k]; });
+    (FICHES[ve.id] = FICHES[ve.id] || {})[type] = f; saveFiches();
+  }
+  return f;
+}
+const curFiche = () => { const ve = S.ves.find(v => v.id === curVe); return ve && getFiche(ve, curType, true); };
+// Infos communes aux deux fiches : remplies sur l'une, recopiées aussitôt sur l'autre (les observations restent séparées)
+const SHARED = new Set(['date', 'inter', 'site', 'client', 'type', 'modif', 'interv', 'pbexp', 'disp', 'pose', 'cabl', 'heure', 'cohPrev', 'cohCalc', 'f230', 'livret', 'nomClient', 'fctClient', 'nomTech', 'sig_client', 'sig_tech']);
+const otherType = t => t === '08' ? '11' : '08';
+const setV = (f, k, v) => { if (v === '' || v === null || v === false || v === undefined) delete f.v[k]; else f.v[k] = v; f.upd = Date.now(); };
+function fset(k, v){
+  const f = curFiche(); if (!f) return; setV(f, k, v);
+  if (SHARED.has(k)) { const o = ficheOf(curVe, otherType(curType)); if (o) setV(o, k, v); }
+  saveFiches();
+}
+function syncShared(){ const f = curFiche(), o = ficheOf(curVe, otherType(curType)); if (f && o) SHARED.forEach(k => setV(o, k, f.v[k])); }
+function ftoggle(k){ const f = curFiche(); fset(k, !f.v[k]); rerenderFiche(); }
+function fpick(k, val){ const f = curFiche(); fset(k, f.v[k] === val ? '' : val); rerenderFiche(); }
+function rerenderFiche(){ const y = window.scrollY; render(); window.scrollTo(0, y); }
+function secToggle(id, open){ open ? openSec.add(id) : openSec.delete(id); }
+
+// --- Lien avec les coffrets de la partie Batteries ---
+const mA = c => { const n = num(c.conso); return n === null ? '' : fmtNum(Math.round((c.unit === 'A' ? n * 1000 : n) * 100) / 100); };
+function coffretVals(c){ return {loc: [c.label, c.loc].filter(Boolean).join(' – '), ch: fmtNum(num(c.vOn) ?? ''), deb: fmtNum(num(c.vOff) ?? ''), fin: fmtNum(num(c.vFin) ?? ''), conso: mA(c)}; }
+function rowVals(r, ve){
+  const c = r.cid && ve.coffrets.find(x => x.id === r.cid);
+  if (!c) return {loc: r.fixed || r.loc || '', ref: r.ref || '', ch: r.ch || '', deb: r.deb || '', fin: r.fin || '', conso: r.conso || '', linked: false};
+  const v = coffretVals(c);
+  Object.assign(r, {ch: v.ch, deb: v.deb, fin: v.fin, conso: v.conso}); // copie de secours si le coffret est supprimé
+  return Object.assign(v, {loc: r.fixed || v.loc, ref: r.ref || '', linked: true, c});
+}
+function linkCoffrets(f, ve, type){
+  const D = VCE[type], linked = new Set(f.alims.map(r => r.cid).filter(Boolean));
+  const todo = ve.coffrets.filter(c => c.type === D.ctype && !linked.has(c.id) && !(f.unlinked || []).includes(c.id));
+  if (!todo.length) return false;
+  const free = i => f.alims[i] && f.alims[i].fixed && !f.alims[i].cid && !f.alims[i].ch && !f.alims[i].deb;
+  if (D.fixed.length) {
+    const pats = [/centrale/i, /princ/i, /secours/i];
+    pats.forEach((p, i) => { const c = todo.find(c => p.test(c.label + ' ' + c.loc)); if (c && free(i)) { f.alims[i].cid = c.id; todo.splice(todo.indexOf(c), 1); } });
+    if (todo.length && free(0) && !ve.coffrets.some(c => /centrale/i.test(c.label + ' ' + c.loc))) f.alims[0].cid = todo.shift().id;
+  }
+  todo.forEach(c => f.alims.push({id: uid(), cid: c.id}));
+  saveFiches(); return true;
+}
+function alimSet(id, k, v){ const r = curFiche().alims.find(x => x.id === id); r[k] = v; curFiche().upd = Date.now(); saveFiches(); }
+function alimAdd(){ curFiche().alims.push({id: uid()}); saveFiches(); rerenderFiche(); }
+function alimDel(id){
+  const f = curFiche(), r = f.alims.find(x => x.id === id);
+  if (r.cid) (f.unlinked = f.unlinked || []).push(r.cid);
+  if (r.fixed) { delete r.cid; ['ch', 'deb', 'fin', 'conso', 'ref'].forEach(k => delete r[k]); }
+  else f.alims = f.alims.filter(x => x.id !== id);
+  saveFiches(); rerenderFiche();
+}
+function alimUnlink(id){
+  const f = curFiche(), ve = S.ves.find(v => v.id === curVe), r = f.alims.find(x => x.id === id), v = rowVals(r, ve);
+  (f.unlinked = f.unlinked || []).push(r.cid); delete r.cid; if (!r.fixed) r.loc = v.loc; saveFiches(); rerenderFiche();
+}
+function alimLink(id, cid){
+  if (!cid) return; const f = curFiche(), r = f.alims.find(x => x.id === id);
+  f.alims.forEach(x => { if (x.cid === cid && x !== r) { if (x.fixed) delete x.cid; else f.alims = f.alims.filter(y => y !== x); } });
+  r.cid = cid; f.unlinked = (f.unlinked || []).filter(x => x !== cid); saveFiches(); rerenderFiche();
+}
+function relinkAll(){
+  const f = curFiche(), ve = S.ves.find(v => v.id === curVe); f.unlinked = []; linkCoffrets(f, ve, curType); rerenderFiche(); toast('Coffrets reliés au tableau');
+}
+
+// --- Lecteurs (VCE 11) ---
+function lecAdd(dup){
+  const f = curFiche(), last = f.lecteurs[f.lecteurs.length - 1];
+  const n = last && /^\d+$/.test(String(last.n).trim()) ? String(+last.n + 1) : String(f.lecteurs.length + 1);
+  f.lecteurs.push(dup && last ? {id: uid(), n, loc: '', type: last.type || '', v: ''} : {id: uid(), n, loc: '', type: '', v: ''});
+  saveFiches(); rerenderFiche();
+  setTimeout(() => { const el = document.querySelector(`[data-lec="${f.lecteurs[f.lecteurs.length - 1].id}"] .lecLoc`); if (el) { el.scrollIntoView({block: 'center'}); el.focus(); } }, 50);
+}
+function lecSet(id, k, v){ const l = curFiche().lecteurs.find(x => x.id === id); l[k] = v; curFiche().upd = Date.now(); saveFiches(); }
+function lecCycle(id, k){ const l = curFiche().lecteurs.find(x => x.id === id); l[k] = l[k] === 'OK' ? 'NOK' : l[k] === 'NOK' ? '' : 'OK'; saveFiches(); rerenderFiche(); }
+function lecAllOk(id){ curFiche().lecteurs.filter(l => !id || l.id === id).forEach(l => ESSAIS.forEach(([k]) => { if (!l[k]) l[k] = 'OK'; })); saveFiches(); rerenderFiche(); }
+function lecDel(id){ if (!confirm('Supprimer ce lecteur ?')) return; const f = curFiche(); f.lecteurs = f.lecteurs.filter(x => x.id !== id); saveFiches(); rerenderFiche(); }
+
+// --- Lignes à cocher (périphériques, transmission…) ---
+function rowsAllOk(item){
+  const f = curFiche(), it = findItem(item);
+  it.rows.forEach(r => { if (it.q && !(+f.v[r.k + '_q'] > 0)) return; r.c.forEach((p, i) => { if (p) f.v[r.k + '_' + i] = true; }); });
+  saveFiches(); rerenderFiche();
+}
+function qty(k, d){ const f = curFiche(); const n = Math.max(0, (+f.v[k] || 0) + d); fset(k, n || ''); rerenderFiche(); }
+function findItem(k){ for (const s of VCE[curType].sections) for (const it of s.items) if (it.k === k) return it; }
+function finAll(){ VCE[curType].sections.find(s => s.id === 'fin').items.forEach(it => { if (it.t === 'chk') fset(it.k, true); }); rerenderFiche(); }
+
+// --- Reprise de la fiche précédente du même site ---
+function prevFiche(ve, type){
+  return S.ves.filter(v => v.siteId === ve.siteId && v.id !== ve.id && ficheOf(v.id, type)).sort((a, b) => b.start - a.start)[0];
+}
+function copyPrev(){
+  const ve = S.ves.find(v => v.id === curVe), pv = prevFiche(ve, curType); if (!pv) return;
+  const src = ficheOf(pv.id, curType), f = curFiche();
+  STABLE.forEach(k => { if (src.v[k] !== undefined && !f.v[k]) f.v[k] = src.v[k]; });
+  Object.keys(src.v).forEach(k => { if ((/_q$|_n$/.test(k)) && f.v[k] === undefined) f.v[k] = src.v[k]; });
+  if (!f.lecteurs.length) f.lecteurs = src.lecteurs.map(l => ({id: uid(), n: l.n, loc: l.loc, type: l.type, v: ''}));
+  src.alims.forEach((r, i) => {
+    if (r.fixed) { if (f.alims[i] && r.ref && !f.alims[i].ref) f.alims[i].ref = r.ref; return; }
+    if (!r.cid && (r.loc || r.ref) && !f.alims.some(x => x.loc === r.loc)) f.alims.push({id: uid(), loc: r.loc, ref: r.ref});
+  });
+  syncShared(); saveFiches(); rerenderFiche(); toast(`Fiche reprise de la VE du ${fmtDay(pv.start)} (sans les mesures ni les essais)`);
+}
+function clearFiche(){
+  if (!confirm(`Effacer toutes les réponses de la ${VCE[curType].short} de cette VE ?`)) return;
+  delete FICHES[curVe][curType]; saveFiches(); rerenderFiche(); toast('Fiche effacée');
+}
+
+// --- Écrans ---
+const shr = k => SHARED.has(k) ? ' <em class="shr" title="Commun aux fiches 08 et 11">⇄</em>' : '';
+const ynHtml = (k, v) => `<div class="unit">${[['o', 'Oui'], ['n', 'Non']].map(([x, l]) => `<button class="chip ${v === x ? 'on' : ''}" onclick="fpick('${k}','${x}')">${l}</button>`).join('')}</div>`;
+function itemHtml(it, f, ve){
+  const v = f.v[it.k];
+  switch (it.t) {
+    case 'sub': return `<div class="sub" style="margin:12px 0 2px;font-weight:700">${esc(it.l)}</div>`;
+    case 'text': case 'num': return `<label>${esc(it.l)}${shr(it.k)}</label><input ${it.t === 'num' ? 'inputmode="numeric"' : ''} value="${esc(v || '')}" oninput="fset('${it.k}', this.value)">`;
+    case 'date': return `<label>${esc(it.l)}${shr(it.k)}</label><input type="date" value="${esc(v || '')}" onchange="fset('${it.k}', this.value)">`;
+    case 'area': return `<label>${esc(it.l)}</label><textarea oninput="fset('${it.k}', this.value)">${esc(v || '')}</textarea>`;
+    case 'pair': return `<div class="grid2">${it.items.map(x => `<div>${itemHtml(x, f, ve)}</div>`).join('')}</div>`;
+    case 'seg': return `<label>${esc(it.l)}${shr(it.k)}</label><div class="chips">${it.opts.map(([x, l]) => `<button class="chip ${v === x ? 'on' : ''}" onclick="fpick('${it.k}','${x}')">${l}</button>`).join('')}</div>`;
+    case 'yn': return `<div class="row vrow"><div class="grow">${esc(it.l)}${shr(it.k)}</div>${ynHtml(it.k, v)}</div>`;
+    case 'chk': return `<button class="tick ${v ? 'on' : ''}" onclick="ftoggle('${it.k}')"><span>${v ? '✓' : ''}</span>${esc(it.l)}${shr(it.k)}</button>`;
+    case 'allfin': return `<button class="btn small block" onclick="finAll()">✓ Tout cocher</button>`;
+    case 'rows': return rowsHtml(it, f);
+    case 'alims': return alimsHtml(f, ve);
+    case 'lecteurs': return lecteursHtml(f);
+    case 'sigs': return `<div class="grid2" style="margin-top:10px">${['client', 'tech'].map(w => `<div><label>Signature ${w === 'client' ? 'client' : 'technicien'}</label>
+      <button class="sigbox" onclick="openSig('${w}')">${f.v['sig_' + w] ? `<img src="${f.v['sig_' + w]}" alt="signature">` : '<span>✍️ Toucher pour signer</span>'}</button></div>`).join('')}</div>`;
+  }
+  return '';
+}
+function rowsHtml(it, f){
+  return `<div class="rtab">
+    <div class="rh"><div class="grow"></div>${it.q ? '<div class="qcol">Qté</div>' : ''}${it.cols.map(c => `<div class="ccol">${c}</div>`).join('')}</div>
+    ${it.rows.map(r => {
+      const q = +f.v[r.k + '_q'] || 0, dim = it.q && !q;
+      return `<div class="rr ${dim ? 'dim' : ''}">
+        <div class="grow">${it.named ? `<input class="rname" placeholder="${esc(r.l)} (préciser)" value="${esc(f.v[r.k + '_n'] || '')}" oninput="fset('${r.k}_n', this.value)">` : esc(r.l)}</div>
+        ${it.q ? `<div class="qcol"><div class="step"><button onclick="qty('${r.k}_q',-1)">−</button><b>${q || '·'}</b><button onclick="qty('${r.k}_q',1)">+</button></div></div>` : ''}
+        ${r.c.map((p, i) => `<div class="ccol">${p ? `<button class="box ${f.v[r.k + '_' + i] ? 'on' : ''}" onclick="ftoggle('${r.k}_${i}')">${f.v[r.k + '_' + i] ? '✓' : ''}</button>` : ''}</div>`).join('')}
+      </div>`; }).join('')}
+  </div>
+  ${it.noall ? '' : `<button class="btn small block" onclick="rowsAllOk('${it.k}')">✓ Tout OK${it.q ? ' (lignes avec une quantité)' : ''}</button>`}`;
+}
+function alimsHtml(f, ve){
+  const D = VCE[curType], mine = ve.coffrets.filter(c => c.type === D.ctype);
+  const field = (r, k, ph, w) => `<input inputmode="decimal" placeholder="${ph}" value="${esc(r[k] || '')}" oninput="alimSet('${r.id}','${k}',this.value)" style="${w || ''}">`;
+  const free = D.fixed.length ? f.alims.length - D.fixed.length : f.alims.length, room = D.fixed.length ? 5 : 8;
+  return `<div class="sub">Les lignes reliées à un coffret 🔗 reprennent automatiquement les mesures de la partie Batteries (chargeur = sous tension, bat. début = hors tension, bat. fin, conso en mA). Touche une ligne reliée pour corriger ses mesures.</div>
+    ${f.alims.map((r, i) => {
+      const v = rowVals(r, ve), opts = mine.filter(c => !f.alims.some(x => x.cid === c.id));
+      return `<div class="bat">
+        <div class="row"><div class="grow name" style="font-size:14px">${i + 1}. ${r.fixed ? esc(r.fixed) : v.linked ? esc(v.loc) : ''}${v.linked ? ` <span class="pill info">🔗 ${esc(v.c.label || 'coffret')}</span>` : ''}</div>
+          ${v.linked ? `<button class="btn small" onclick="alimUnlink('${r.id}')">Délier</button>` : ''}
+          ${!r.fixed || v.linked || r.ch || r.deb || r.fin || r.conso || r.ref ? `<button class="btn small" onclick="alimDel('${r.id}')" aria-label="Retirer">✕</button>` : ''}</div>
+        ${!r.fixed && !v.linked ? `<input placeholder="Localisation" value="${esc(r.loc || '')}" oninput="alimSet('${r.id}','loc',this.value)" style="margin-top:6px">` : ''}
+        ${D.hasRef ? `<input placeholder="Référence alimentation" value="${esc(r.ref || '')}" oninput="alimSet('${r.id}','ref',this.value)" style="margin-top:6px">` : ''}
+        ${v.linked ? `<div class="meas tap" onclick="editCoffret('${v.c.id}')"><span>Chargeur ${v.ch || '–'} V</span><span>Début ${v.deb || '–'} V</span><span>Fin ${v.fin || '–'} V</span><span>${v.conso || '–'} mA</span><span>✏️</span></div>`
+          : `<div class="grid4" style="margin-top:6px">${field(r, 'ch', 'Charg. V')}${field(r, 'deb', 'Début V')}${field(r, 'fin', 'Fin V')}${field(r, 'conso', 'Conso mA')}</div>
+             ${opts.length ? `<select style="margin-top:6px" onchange="alimLink('${r.id}', this.value)"><option value="">🔗 Relier à un coffret…</option>${opts.map(c => `<option value="${c.id}">${esc(c.label || 'Coffret')}${c.loc ? ' – ' + esc(c.loc) : ''}</option>`).join('')}</select>` : ''}`}
+      </div>`; }).join('')}
+    <button class="btn small block" onclick="alimAdd()">+ Ajouter une ligne</button>
+    ${(f.unlinked || []).length ? `<button class="btn small block" onclick="relinkAll()">🔗 Relier à nouveau tous les coffrets</button>` : ''}
+    ${free > room ? `<div class="hint">ℹ️ Plus de ${room} lignes${D.fixed.length ? ' libres' : ''} : la fiche sera remplie sur ${Math.ceil(free / room)} pages (page 1/x, 2/x…).</div>` : ''}`;
+}
+function lecteursHtml(f){
+  const L = f.lecteurs;
+  return `<div class="sub">Essais : touche une case pour passer de vide → <b>OK</b> → <b>NOK</b> → vide.</div>
+    <datalist id="lecTypes">${LEC_TYPES.map(t => `<option value="${t}">`).join('')}</datalist>
+    ${L.map(l => `<div class="bat" data-lec="${l.id}">
+      <div class="row">
+        <input style="width:64px;padding:8px" placeholder="N°" value="${esc(l.n || '')}" oninput="lecSet('${l.id}','n',this.value)">
+        <input class="grow lecLoc" style="padding:8px" placeholder="Localisation" value="${esc(l.loc || '')}" oninput="lecSet('${l.id}','loc',this.value)">
+        <button class="btn small" onclick="lecDel('${l.id}')" aria-label="Supprimer">✕</button></div>
+      <div class="row" style="margin-top:6px">
+        <input class="grow" style="padding:8px" list="lecTypes" placeholder="Type" value="${esc(l.type || '')}" oninput="lecSet('${l.id}','type',this.value)">
+        <input style="width:96px;padding:8px" inputmode="decimal" placeholder="Tension V" value="${esc(l.v || '')}" oninput="lecSet('${l.id}','v',this.value)"></div>
+      <div class="row" style="margin-top:6px;gap:6px">${ESSAIS.map(([k, lab]) => `<button class="ess ${l[k] === 'OK' ? 'ok' : l[k] === 'NOK' ? 'nok' : ''}" onclick="lecCycle('${l.id}','${k}')"><small>${lab}</small>${l[k] || '·'}</button>`).join('')}
+        <button class="btn small" onclick="lecAllOk('${l.id}')">✓ OK</button></div>
+    </div>`).join('') || '<div class="empty" style="padding:12px">Aucun lecteur pour l\'instant.</div>'}
+    <div class="grid2"><button class="btn small block" onclick="lecAdd()">+ Lecteur</button><button class="btn small block" onclick="lecAdd(true)" ${L.length ? '' : 'disabled'}>+ Même type</button></div>
+    ${L.length ? `<button class="btn small block" onclick="lecAllOk()">✓ Tous les essais vides → OK</button>` : ''}
+    ${L.length > 20 ? `<div class="hint">ℹ️ Plus de 20 lecteurs : la fiche sera remplie sur ${Math.ceil(L.length / 20)} pages.</div>` : ''}`;
+}
+function renderFiche(ve){
+  const D = VCE[curType], f = getFiche(ve, curType, true);
+  linkCoffrets(f, ve, curType);
+  const pv = prevFiche(ve, curType), fresh = !STABLE.slice(0, 4).some(k => f.v[k] && k !== 'client');
+  $('view').innerHTML = `
+    <div class="card">
+      <div class="name">${D.icon} ${esc(D.title)}</div>
+      <div class="sub">🔒 Enregistrée uniquement sur ce téléphone (jamais envoyée sur OneDrive).</div>
+      <div class="sub"><em class="shr">⇄</em> = info commune : remplie ici, elle l'est aussi sur la ${VCE[otherType(curType)].short} de cette VE. Les observations restent propres à chaque fiche.</div>
+      ${pv && fresh ? `<button class="btn block" onclick="copyPrev()">↩️ Reprendre la fiche de la VE du ${fmtDay(pv.start)}</button>` : ''}
+      <button class="btn primary block" onclick="makeVce()">📄 Générer la fiche PDF remplie</button>
+    </div>
+    ${D.sections.map(s => `<details class="card sec" ${openSec.has(s.id) ? 'open' : ''} ontoggle="secToggle('${s.id}', this.open)">
+      <summary>${s.t}${secCount(s, f) ? `<span class="pill ok" style="margin:0 0 0 8px">${secCount(s, f)}</span>` : ''}</summary>
+      ${s.items.map(it => itemHtml(it, f, ve)).join('')}
+    </details>`).join('')}
+    <button class="btn primary block" onclick="makeVce()">📄 Générer la fiche PDF remplie</button>
+    <button class="btn block" style="color:var(--bad)" onclick="clearFiche()">🗑 Effacer cette fiche</button>`;
+}
+function secCount(s, f){
+  let n = 0;
+  const walk = it => {
+    if (it.t === 'pair') return it.items.forEach(walk);
+    if (it.t === 'rows') return it.rows.forEach(r => { n += r.c.filter((p, i) => f.v[r.k + '_' + i]).length + (f.v[r.k + '_q'] ? 1 : 0); });
+    if (it.t === 'alims') { n += f.alims.filter(r => r.cid || r.ch || r.deb).length; return; }
+    if (it.t === 'lecteurs') { n += f.lecteurs.length; return; }
+    if (it.t === 'sigs') { n += ['client', 'tech'].filter(w => f.v['sig_' + w]).length; return; }
+    if (it.k && f.v[it.k]) n++;
+  };
+  s.items.forEach(walk); return n;
+}
+function vceSummary(ve, type){
+  const f = ficheOf(ve.id, type), D = VCE[type], nc = ve.coffrets.filter(c => c.type === D.ctype).length;
+  if (!f) return nc ? `${nc} coffret${nc > 1 ? 's' : ''} ${type === '08' ? 'alarme' : 'contrôle d\'accès'} · fiche pas commencée` : 'Pas de coffret de ce type · fiche pas commencée';
+  const n = D.sections.reduce((s, x) => s + secCount(x, f), 0);
+  return `${n} réponse${n > 1 ? 's' : ''} · modifiée le ${fmtDate(f.upd)}`;
+}
+function vceTabHtml(ve){
+  const rec = t => ve.coffrets.some(c => c.type === VCE[t].ctype) || ficheOf(ve.id, t);
+  const order = ['08', '11'].sort((a, b) => (rec(b) ? 1 : 0) - (rec(a) ? 1 : 0));
+  return `${!TPL['08'] && !TPL['11'] ? `<div class="alertbar tap" onclick="go('settings')">📄 <div class="grow">Pour générer le PDF, charge d'abord tes fiches vierges dans <b>Réglages</b> (une seule fois).</div>›</div>` : ''}
+    ${order.map(t => `<div class="card tap" onclick="curType='${t}';openSec=new Set(['inter']);go('fiche','${ve.id}')" style="${rec(t) ? '' : 'opacity:.75'}">
+      <div class="row"><div class="grow"><div class="name">${VCE[t].icon} ${esc(VCE[t].title)} ${TPL[t] ? '' : '<span class="pill warn">fiche vierge à charger</span>'}</div>
+      <div class="sub">${vceSummary(ve, t)}</div></div><div style="font-size:22px;color:var(--muted)">›</div></div></div>`).join('')}
+    ${['08', '11'].filter(t => ficheOf(ve.id, t) && TPL[t]).length > 1 ? `<button class="btn primary block" onclick="mailAllVce('${ve.id}')">✉️ Envoyer les 2 fiches dans un seul mail</button>` : ''}
+    <div class="sub center">🔒 Les fiches restent sur ce téléphone.</div>`;
+}
+
+// --- Signature au doigt ---
+let sigWho = null;
+function openSig(who){
+  sigWho = who;
+  openSheet(`<h3>✍️ Signature ${who === 'client' ? 'du client' : 'du technicien'}</h3>
+    <canvas id="sigCv" class="sigcv"></canvas>
+    <div class="grid2"><button class="btn block" onclick="sigClear()">Effacer</button><button class="btn primary block" onclick="sigSave()">✓ Valider</button></div>
+    ${curFiche().v['sig_' + who] ? `<button class="btn block" style="color:var(--bad)" onclick="fset('sig_${who}','');closeSheet();rerenderFiche()">Supprimer la signature</button>` : ''}
+    <button class="btn block" onclick="closeSheet()">Annuler</button>`);
+  const cv = $('sigCv'), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  cv.width = r.width * dpr; cv.height = r.height * dpr;
+  const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr); ctx.lineWidth = 2.4; ctx.lineCap = ctx.lineJoin = 'round'; ctx.strokeStyle = '#13235b';
+  let drawing = false; cv._used = false;
+  const pt = e => { const b = cv.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
+  cv.onpointerdown = e => { drawing = true; cv.setPointerCapture(e.pointerId); const [x, y] = pt(e); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + .1, y + .1); ctx.stroke(); cv._used = true; };
+  cv.onpointermove = e => { if (!drawing) return; const [x, y] = pt(e); ctx.lineTo(x, y); ctx.stroke(); };
+  cv.onpointerup = cv.onpointercancel = () => { drawing = false; };
+}
+function sigClear(){ const cv = $('sigCv'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); cv._used = false; }
+function sigSave(){
+  const cv = $('sigCv'); if (!cv._used) return toast('Signe dans le cadre');
+  const ctx = cv.getContext('2d'), {width: w, height: h} = cv, d = ctx.getImageData(0, 0, w, h).data;
+  let x0 = w, y0 = h, x1 = 0, y1 = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 10) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 <= x0) return toast('Signe dans le cadre');
+  const pad = 6, out = document.createElement('canvas'), sc = Math.min(1, 600 / (x1 - x0 + pad * 2));
+  out.width = Math.round((x1 - x0 + pad * 2) * sc); out.height = Math.round((y1 - y0 + pad * 2) * sc);
+  out.getContext('2d').drawImage(cv, x0 - pad, y0 - pad, x1 - x0 + pad * 2, y1 - y0 + pad * 2, 0, 0, out.width, out.height);
+  fset('sig_' + sigWho, out.toDataURL('image/png')); closeSheet(); rerenderFiche();
+}
+
+// --- Fiches vierges gardées sur le téléphone (IndexedDB) ---
+let TPL = {'08': null, '11': null};
+function idb(){
+  return new Promise((res, rej) => { const r = indexedDB.open('batteriesVE_local', 1); r.onupgradeneeded = () => r.result.createObjectStore('tpl'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+}
+async function idbDo(mode, fn){ const db = await idb(); return new Promise((res, rej) => { const tx = db.transaction('tpl', mode), st = tx.objectStore('tpl'), q = fn(st); tx.oncomplete = () => res(q && q.result); tx.onerror = () => rej(tx.error); }); }
+const tplGet = k => idbDo('readonly', st => st.get(k));
+async function tplLoadInfo(){
+  try { for (const k of ['08', '11']) { const t = await tplGet(k); TPL[k] = t ? {name: t.name, size: t.size, date: t.date} : null; } } catch(e){}
+  if (tab === 'settings' || tab === 've' || tab === 'fiche') render();
+}
+function loadPdfLib(){
+  if (window.PDFLib) return Promise.resolve();
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'pdf-lib.min.js'; s.onload = res; s.onerror = () => rej(new Error('module PDF introuvable : ouvre l\'appli une fois avec du réseau')); document.head.appendChild(s); });
+}
+async function importTpl(files){
+  if (!files || !files.length) return;
+  try { await loadPdfLib(); } catch(e){ return toast(e.message); }
+  for (const file of files) {
+    try {
+      const bytes = await file.arrayBuffer();
+      const doc = await PDFLib.PDFDocument.load(bytes, {ignoreEncryption: true});
+      const names = new Set(doc.getForm().getFields().map(x => x.getName()));
+      const k = names.has(VCE['08'].detect) ? '08' : names.has(VCE['11'].detect) ? '11' : null;
+      if (!k) { toast(`« ${file.name} » n'est pas une fiche VCE 08 ou VCE 11 reconnue`); continue; }
+      const info = {name: file.name, size: file.size, date: Date.now()};
+      await idbDo('readwrite', st => st.put(Object.assign({bytes}, info), k));
+      TPL[k] = info; toast(`✓ ${VCE[k].short} enregistrée sur le téléphone`);
+    } catch(e){ toast(`Impossible de lire « ${file.name} » : ${e.message}`); }
+  }
+  render();
+}
+async function delTpl(k){
+  if (!confirm(`Retirer la fiche vierge ${VCE[k].short} de ce téléphone ?`)) return;
+  await idbDo('readwrite', st => st.delete(k)); TPL[k] = null; render();
+}
+function tplSettingsHtml(){
+  const nF = Object.values(FICHES).reduce((s, x) => s + Object.keys(x || {}).length, 0);
+  return `<div class="sub">Choisis une fois les fiches vierges de l'entreprise (PDF) depuis ton téléphone. Elles sont gardées <b>uniquement dans la mémoire de l'appli</b> : ni GitHub, ni OneDrive.</div>
+    ${['08', '11'].map(k => `<div class="odstat">${TPL[k] ? '✅' : '⬜'} <div class="grow"><b>${VCE[k].title}</b><div class="sub" style="margin:0">${TPL[k] ? `${esc(TPL[k].name)} · ${Math.round(TPL[k].size / 1024)} Ko · chargée le ${fmtDay(TPL[k].date)}` : 'pas encore chargée'}</div></div>
+      ${TPL[k] ? `<button class="btn small" onclick="delTpl('${k}')">Retirer</button>` : ''}</div>`).join('')}
+    <button class="btn primary block" onclick="$('impTpl').click()">📄 Choisir les fiches vierges (PDF)</button>
+    <div class="hint">Tu peux sélectionner les deux PDF d'un coup : l'appli reconnaît seule la VCE 08 et la VCE 11.</div>
+    <div class="sub" style="margin-top:10px">${nF} fiche${nF > 1 ? 's' : ''} remplie${nF > 1 ? 's' : ''} enregistrée${nF > 1 ? 's' : ''} sur ce téléphone.</div>
+    ${nF ? `<button class="btn block" style="color:var(--bad)" onclick="clearAllFiches()">🗑 Effacer toutes les fiches remplies</button>` : ''}`;
+}
+function clearAllFiches(){ if (!confirm('Effacer les réponses de toutes les fiches VCE de ce téléphone ?')) return; FICHES = {}; saveFiches(); render(); toast('Fiches effacées'); }
+
+// --- Remplissage de la vraie fiche ---
+const pdfTxt = s => String(s ?? '').replace(/Ω/g, 'Ohm').replace(/[≤]/g, '<=').replace(/[≥]/g, '>=').replace(/[^\n\x20-\x7E\xA0-\xFF€‘’“”–—…œŒ•]/g, '?');
+const frDate = d => d ? d.split('-').reverse().join('/') : '';
+const chunk = (a, n) => { const out = []; for (let i = 0; i < a.length; i += n) out.push(a.slice(i, i + n)); return out; };
+// Coche bien visible (la coche d'origine du formulaire est très fine) : dessinée dans l'apparence de la case,
+// donc visible dans la version modifiable comme dans la version figée
+function tickProvider(cb, w){
+  const {drawRectangle, rgb} = PDFLib, R = w.getRectangle(), wd = R.width, ht = R.height, s = Math.min(wd, ht);
+  const bg = () => drawRectangle({x: 0, y: 0, width: wd, height: ht, borderWidth: 0, color: rgb(.86, .87, .88), borderColor: undefined, rotate: PDFLib.degrees(0), xSkew: PDFLib.degrees(0), ySkew: PDFLib.degrees(0)});
+  const x = (wd - s) / 2, y = (ht - s) / 2, th = Math.max(1.1, s / 7), ink = rgb(.07, .14, .36), L = (a, b, c, d) => PDFLib.drawLine({start: {x: x + s * a, y: y + s * b}, end: {x: x + s * c, y: y + s * d}, thickness: th, color: ink, lineCap: PDFLib.LineCapStyle.Round});
+  const mark = [...L(.18, .52, .42, .24), ...L(.42, .24, .86, .86)];
+  return {normal: {on: [...bg(), ...mark], off: bg()}};
+}
+async function buildVce(ve, type){
+  await loadPdfLib();
+  const rec = await tplGet(type);
+  if (!rec) throw new Error(`fiche vierge ${VCE[type].short} pas encore chargée (Réglages)`);
+  const {PDFDocument, PDFTextField, PDFCheckBox, StandardFonts} = PDFLib;
+  const D = VCE[type], f = getFiche(ve, type, true); linkCoffrets(f, ve, type);
+  const fixedRows = f.alims.slice(0, D.fixed.length), freeRows = f.alims.slice(D.fixed.length);
+  const perPage = D.alimMax - D.fixed.length, alimPages = chunk(freeRows, perPage);
+  const lecPages = D.lecMax ? chunk(f.lecteurs, D.lecMax) : [];
+  const nPages = Math.max(1, alimPages.length, lecPages.length);
+  const out = await PDFDocument.create(), missing = new Set(), editable = [];
+  for (let p = 0; p < nPages; p++) {
+    const doc = await PDFDocument.load(rec.bytes, {ignoreEncryption: true});
+    const form = doc.getForm(), byName = {};
+    form.getFields().forEach(x => { byName[x.getName()] = x; try { if (x instanceof PDFTextField) x.setText(''); else if (x instanceof PDFCheckBox) x.uncheck(); } catch(e){} });
+    const T = (name, val, size) => {
+      if (!name) return; const x = byName[name]; if (!x) return missing.add(name);
+      if (val === undefined || val === null || val === '') return;
+      try { const ml = x.isMultiline && x.isMultiline(); x.setText(ml ? pdfTxt(val) : pdfTxt(val).replace(/\s*\n\s*/g, ' · ')); } catch(e){ try { x.setMaxLength(undefined); x.setText(pdfTxt(val)); } catch(e2){} }
+      try { x.setFontSize(size || 0); } catch(e){}
+    };
+    const C = name => { if (!name) return; const x = byName[name]; if (!x) return missing.add(name); try { x.check(); } catch(e){} };
+    const walk = (it, first) => {
+      const v = f.v[it.k];
+      switch (it.t) {
+        case 'pair': return it.items.forEach(x => walk(x, first));
+        case 'text': case 'num': return (first || ['inter', 'site', 'client', 'nomClient', 'fctClient', 'nomTech'].includes(it.k)) && T(it.pdf, v, it.k === 'client' || it.k === 'autres' ? 9 : 8);
+        case 'date': return T(it.pdf, frDate(v), 9);
+        case 'area': return first && T(it.pdf, v, 9);
+        case 'seg': { const o = it.opts.find(o => o[0] === v); return o && C(o[2]); }
+        case 'yn': return first && v && C(v === 'o' ? it.o : it.n);
+        case 'chk': return first && v && C(it.pdf);
+        case 'rows': return first && it.rows.forEach(r => {
+          if (r.q) T(r.q, f.v[r.k + '_q'], 8);
+          if (r.name) T(r.name, f.v[r.k + '_n'], 8);
+          r.c.forEach((pn, i) => { if (pn && f.v[r.k + '_' + i]) C(pn); });
+        });
+      }
+    };
+    D.sections.forEach(s => s.items.forEach(it => walk(it, p === 0)));
+    // Alimentations
+    const rows = p === 0 ? fixedRows.map((r, i) => [i + 1, r]) : [];
+    (alimPages[p] || []).forEach((r, i) => rows.push([D.fixed.length + 1 + i, r]));
+    rows.forEach(([n, r]) => {
+      const v = rowVals(r, ve), F = D.alim(n);
+      if (F.loc) T(F.loc, v.loc, 7); if (F.ref) T(F.ref, v.ref, 7);
+      T(F.ch, v.ch, 8); T(F.deb, v.deb, 8); T(F.fin, v.fin, 8); T(F.conso, v.conso, 8);
+    });
+    // Lecteurs
+    (lecPages[p] || []).forEach((l, i) => {
+      const F = D.lec(i + 1);
+      T(F.n, l.n, 8); T(F.loc, l.loc, 8); T(F.type, l.type, 8); ESSAIS.forEach(([k]) => T(F[k], l[k], 7)); T(F.v, l.v, 8);
+    });
+    // Pages
+    T(D.page[0], String(p + 1), 9); T(D.page[1], String(nPages), 9);
+    // Signatures : le champ « signature » du formulaire est retiré, l'image est dessinée à sa place
+    const page = doc.getPage(0), sigs = [];
+    for (const w of ['client', 'tech']) {
+      const src = f.v['sig_' + w]; if (!src) continue;
+      let rect = D.sig[w];
+      if (typeof rect === 'string') { const x = byName[rect]; if (!x) { missing.add(rect); continue; } const R = x.acroField.getWidgets()[0].getRectangle(); rect = [R.x, R.y, R.width, R.height]; try { form.removeField(x); } catch(e){} }
+      sigs.push([src, rect]);
+    }
+    for (const [src, [rx, ry, rw, rh]] of sigs) {
+      const img = await doc.embedPng(src), k = Math.min(rw / img.width, rh / img.height);
+      page.drawImage(img, {x: rx + 2, y: ry + (rh - img.height * k) / 2, width: img.width * k, height: img.height * k});
+    }
+    form.getFields().forEach(x => { if (x instanceof PDFCheckBox) try { x.updateAppearances(tickProvider); } catch(e){} });
+    const helv = await doc.embedFont(StandardFonts.Helvetica);
+    form.updateFieldAppearances(helv);
+    doc.setTitle(`${D.short} ${siteName(ve.siteId)}${nPages > 1 ? ` (page ${p + 1}/${nPages})` : ''}`); doc.setProducer('Batteries VE (local)'); doc.setCreator('Batteries VE');
+    editable.push(await doc.save()); // version modifiable : les champs restent remplissables
+    form.flatten();
+    const [pg] = await out.copyPages(doc, [0]); out.addPage(pg);
+  }
+  out.setTitle(`${D.short} ${siteName(ve.siteId)}`); out.setProducer('Batteries VE (local)'); out.setCreator('Batteries VE');
+  return {bytes: await out.save(), editable, pages: nPages, missing: [...missing]};
+}
+// --- Envoi par mail : texte pré-enregistré + PDF modifiable + PDF non modifiable ---
+let lastVce = null;
+function vceFiles(type, name, r){
+  const base = name.replace(/\.pdf$/i, ''), out = [{name: base + '.pdf', blob: new Blob([r.bytes], {type: 'application/pdf'})}];
+  r.editable.forEach((b, i) => out.push({editable: true, name: base + '_modifiable' + (r.editable.length > 1 ? '_p' + (i + 1) : '') + '.pdf', blob: new Blob([b], {type: 'application/pdf'})}));
+  return out;
+}
+function mailFill(tpl, ve, types){
+  const st = S.sites.find(x => x.id === ve.siteId) || {}, f = ficheOf(ve.id, types[0]) || {v: {}};
+  const map = {fiche: types.map(t => VCE[t].short).join(' et '), fiches: (types.length > 1 ? 'les fiches ' : 'la fiche ') + types.map(t => VCE[t].short).join(' et '), site: siteName(ve.siteId), date: frDate(f.v.date) || fmtDay(ve.end || ve.start),
+    client: f.v.client || st.client || '', idsite: f.v.site || st.idSite || '', inter: f.v.inter || '', tech: f.v.nomTech || S.settings.tech || ''};
+  return String(tpl || '').replace(/\{(\w+)\}/g, (m, k) => k in map ? map[k] : m);
+}
+async function mailVce(){
+  if (!lastVce) return;
+  const {ve, types, files} = lastVce;
+  const to = (S.settings.mailTo || '').trim(), subject = mailFill(S.settings.mailSubject || MAIL_SUBJECT, ve, types), body = mailFill(S.settings.mailBody || MAIL_BODY, ve, types);
+  const fl = files.map(x => new File([x.blob], x.name, {type: 'application/pdf'}));
+  if (to && navigator.clipboard) navigator.clipboard.writeText(to).catch(() => {});
+  if (navigator.canShare && navigator.share && navigator.canShare({files: fl})) {
+    try {
+      await navigator.share({files: fl, title: subject, text: body});
+      if (to) toast('📋 Adresse copiée : colle-la dans « À » si elle n\'y est pas');
+      return;
+    } catch(e) { if (e.name === 'AbortError') return; }
+  }
+  // Sans partage de fichiers (ordinateur) : fichiers téléchargés + mail pré-rempli à compléter avec les pièces jointes
+  files.forEach(x => download(x.name, x.blob, 'application/pdf'));
+  location.href = `mailto:${encodeURIComponent(to).replace(/%2C/gi, ',').replace(/%40/g, '@')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  toast('PDF téléchargés : ajoute-les en pièces jointes du mail');
+}
+async function mailAllVce(veId){
+  const ve = S.ves.find(v => v.id === veId), types = ['08', '11'].filter(t => ficheOf(veId, t) && TPL[t]);
+  if (!types.length) return toast('Aucune fiche à envoyer');
+  openSheet(`<h3>✉️ Préparation du mail</h3><div class="sub">Remplissage de ${types.map(t => VCE[t].short).join(' et ')} sur le téléphone…</div>`);
+  try {
+    const files = [];
+    for (const t of types) {
+      const r = await buildVce(ve, t), f = ficheOf(ve.id, t);
+      files.push(...vceFiles(t, `${VCE[t].short.replace(' ', '')}_${siteName(ve.siteId).replace(/[\\/:*?"<>|]+/g, '-').trim()}_${(f.v.date || dayInput(Date.now())).split('-').reverse().join('-')}.pdf`, r));
+    }
+    lastVce = {ve, types, files};
+    openSheet(`<h3>✉️ ${types.map(t => VCE[t].short).join(' + ')} prêtes</h3>
+      <div class="sub">${files.length} PDF : ${files.map(x => esc(x.name)).join('<br>')}</div>
+      <button class="btn primary block" onclick="mailVce()">✉️ Ouvrir le mail</button>
+      <div class="hint">Choisis ton appli mail (Gmail, Outlook…) : les PDF et le texte sont déjà dedans. Le destinataire est copié : colle-le dans « À » s'il n'apparaît pas.</div>
+      <button class="btn block" onclick="closeSheet()">Fermer</button>`);
+  } catch(e){
+    openSheet(`<h3>✉️ Mail</h3><div class="alertbar bad">⛔ <div class="grow">Erreur : ${esc(e.message)}</div></div><button class="btn block" onclick="closeSheet()">Fermer</button>`);
+  }
+}
+async function makeVce(){
+  const ve = S.ves.find(v => v.id === curVe); if (!ve) return;
+  if (!TPL[curType]) { toast(`Charge d'abord la fiche vierge ${VCE[curType].short} dans Réglages`); return go('settings'); }
+  openSheet(`<h3>📄 ${VCE[curType].short}</h3><div class="sub">Remplissage de la fiche sur le téléphone…</div>`);
+  try {
+    const r = await buildVce(ve, curType), f = ficheOf(ve.id, curType);
+    const name = `${VCE[curType].short.replace(' ', '')}_${siteName(ve.siteId).replace(/[\\/:*?"<>|]+/g, '-').trim()}_${(f.v.date || dayInput(Date.now())).split('-').reverse().join('-')}.pdf`;
+    lastPdf = {blob: new Blob([r.bytes], {type: 'application/pdf'}), name};
+    lastVce = {ve, types: [curType], files: vceFiles(curType, name, r)};
+    openSheet(`<h3>📄 ${VCE[curType].short} remplie</h3>
+      <div class="sub">${esc(name)}${r.pages > 1 ? ` · ${r.pages} pages` : ''}</div>
+      ${r.missing.length ? `<div class="alertbar">⚠️ <div class="grow">${r.missing.length} case${r.missing.length > 1 ? 's' : ''} introuvable${r.missing.length > 1 ? 's' : ''} dans ta fiche vierge (autre version du formulaire ?) : ${esc(r.missing.slice(0, 4).join(', '))}${r.missing.length > 4 ? '…' : ''}</div></div>` : ''}
+      <button class="btn primary block" onclick="mailVce()">✉️ Envoyer par mail (modifiable + non modifiable)</button>
+      <button class="btn block" onclick="window.open(URL.createObjectURL(lastPdf.blob), '_blank')">👁️ Voir la fiche</button>
+      <button class="btn block" onclick="download(lastPdf.name, lastPdf.blob, 'application/pdf')">⬇️ Télécharger (non modifiable)</button>
+      <button class="btn block" onclick="lastVce.files.filter(x => x.editable).forEach(x => download(x.name, x.blob, 'application/pdf'))">⬇️ Télécharger (modifiable)</button>
+      <button class="btn block" onclick="sharePdf()">📤 Partager…</button>
+      <div class="hint">✉️ Le mail s'ouvre dans ton appli mail avec les 2 PDF et ton texte pré-enregistré${S.settings.mailTo ? ' ; l\'adresse est copiée, colle-la dans « À » si besoin' : ' (ajoute ton destinataire dans Réglages)'}.<br>🔒 Fabriquée sur le téléphone. Aucune copie n'est envoyée ailleurs (pas de OneDrive) : elle ne part que si tu l'envoies.</div>
+      <button class="btn block" onclick="closeSheet()">Fermer</button>`);
+  } catch(e){
+    openSheet(`<h3>📄 ${VCE[curType].short}</h3><div class="alertbar bad">⛔ <div class="grow">Erreur : ${esc(e.message)}</div></div><button class="btn block" onclick="closeSheet()">Fermer</button>`);
+  }
+}
+
 /* ============ Vue Batteries (tous sites) ============ */
 function allBatteries(){
   // État le plus récent connu de chaque site = sa dernière VE
@@ -674,6 +1487,21 @@ function renderSettings(){
       <label style="margin-top:0">Nom du technicien (affiché sur le rapport)</label>
       <input id="sTech" value="${esc(S.settings.tech || '')}" placeholder="ex. Aeden Becher" onchange="S.settings.tech=this.value.trim();save();toast('Nom enregistré')">
     </div>
+    <h2>✉️ Mail des fiches VCE</h2>
+    <div class="card">
+      <div class="sub">Texte pré-enregistré envoyé avec tes fiches (PDF modifiable + PDF non modifiable).</div>
+      <label>Destinataire(s)</label>
+      <input id="mTo" type="email" inputmode="email" multiple value="${esc(S.settings.mailTo || '')}" placeholder="ex. responsable@entreprise.fr (plusieurs : séparés par une virgule)">
+      <label>Objet</label>
+      <input id="mSub" value="${esc(S.settings.mailSubject)}">
+      <label>Message</label>
+      <textarea id="mBody" style="min-height:170px">${esc(S.settings.mailBody)}</textarea>
+      <div class="hint">Mots remplacés automatiquement : <b>{fiche}</b> (VCE 08 / VCE 11), <b>{fiches}</b> (« la fiche VCE 08 » ou « les fiches VCE 08 et VCE 11 »), <b>{site}</b>, <b>{date}</b>, <b>{client}</b>, <b>{idsite}</b>, <b>{inter}</b>, <b>{tech}</b>.</div>
+      <button class="btn primary block" onclick="saveMail()">Enregistrer</button>
+      <button class="btn block" onclick="resetMail()">Remettre le texte d'origine</button>
+    </div>
+    <h2>📝 Fiches VCE (sur ce téléphone uniquement)</h2>
+    <div class="card">${tplSettingsHtml()}</div>
     <h2>🔋 Alertes batteries</h2>
     <div class="card">
       <div class="grid2">
@@ -682,7 +1510,7 @@ function renderSettings(){
       </div>
       <button class="btn primary block" onclick="saveSettings()">Enregistrer</button>
     </div>
-    <h2>☁️ OneDrive (synchronisation automatique)</h2>
+    <h2>☁️ OneDrive (sauvegarde)</h2>
     <div class="card" id="odCard">${odSettingsHtml()}</div>
     <h2>Sauvegarde & export</h2>
     <div class="card">
@@ -694,6 +1522,11 @@ function renderSettings(){
     <div class="card"><button class="btn danger block" onclick="resetAll()">Tout effacer</button></div>
     <div class="sub center" style="margin:14px 0 4px">🔋 Batteries VE · <b>version ${APP_VERSION}</b> du ${APP_DATE}</div>`;
 }
+function saveMail(){
+  S.settings.mailTo = $('mTo').value.trim(); S.settings.mailSubject = $('mSub').value.trim() || MAIL_SUBJECT; S.settings.mailBody = $('mBody').value.trim() || MAIL_BODY;
+  save(); toast('Mail enregistré');
+}
+function resetMail(){ if (!confirm('Remettre l\'objet et le message d\'origine ?')) return; S.settings.mailSubject = MAIL_SUBJECT; S.settings.mailBody = MAIL_BODY; save(); render(); toast('Texte d\'origine remis'); }
 function saveSettings(){
   S.settings.ageYears = Math.max(1, parseInt($('sAge').value, 10) || 4);
   S.settings.warnMonths = Math.max(0, parseInt($('sWarn').value, 10) || 0);
@@ -741,7 +1574,7 @@ function exportXlsx(){ download(`batteries-ve-${new Date().toISOString().slice(0
 
 /* ============ Fenêtres ============ */
 function openSheet(html){ $('sheet').innerHTML = html; $('sheetBg').classList.add('show'); $('undoBar').classList.remove('show'); }
-function closeSheet(){ $('sheetBg').classList.remove('show'); if (undoSnap) $('undoBar').classList.add('show'); }
+function closeSheet(){ $('sheetBg').classList.remove('show'); if (undoSnap && document.body.classList.contains('undo-on')) $('undoBar').classList.add('show'); }
 
 /* ============ Annuler ============ */
 let undoSnap = null, undoTimer = null;
@@ -768,7 +1601,7 @@ const OD_KEY = 'batteriesVE_onedrive';
 const GRAPH = 'https://graph.microsoft.com/v1.0/me/drive/special/approot';
 const OD = {app: null, account: null, busy: false, again: false, timer: null, state: 'off', msg: ''};
 let odMeta = (() => { try { return JSON.parse(localStorage.getItem(OD_KEY)) || {}; } catch(e){ return {}; } })();
-if (odMeta.auto === undefined) odMeta.auto = true;
+if (odMeta.auto === undefined || !odMeta.askSince) { odMeta.auto = false; odMeta.askSince = '1.9'; }
 function odSaveMeta(){ try { localStorage.setItem(OD_KEY, JSON.stringify(odMeta)); } catch(e){} }
 const odClientId = () => (S.settings.odClientId || '').trim();
 const odReady = () => !!(OD.app && OD.account);
@@ -814,7 +1647,17 @@ async function odToken(){
   catch(e) { if (e instanceof msal.InteractionRequiredAuthError) odSet('err', 'Session expirée : appuie sur « Se reconnecter ».', true); throw e; }
 }
 function odSet(state, msg, needLogin){ OD.state = state; OD.msg = msg || ''; OD.needLogin = !!needLogin; odUi(); }
+function odLater(){ odMeta.later = true; odSaveMeta(); odUi(); toast('OK, je te redemanderai à la prochaine modification'); }
 function odUi(){
+  const bar = $('odBar');
+  if (bar) {
+    const show = odReady() && !odMeta.auto && !isEmpty() && ((odMeta.pending && !odMeta.later) || OD.state === 'busy' || OD.state === 'err');
+    bar.hidden = !show;
+    if (show) {
+      $('odBarMsg').textContent = OD.state === 'busy' ? 'Sauvegarde en cours…' : OD.state === 'err' ? 'Sauvegarde OneDrive échouée : ' + (OD.msg || 'réessaie') : 'Modifications pas encore sauvegardées sur OneDrive';
+      bar.querySelectorAll('button').forEach(x => x.hidden = OD.state === 'busy');
+    }
+  }
   const b = $('odBadge'), d = $('odDot');
   if (b) { b.hidden = !odClientId(); d.className = 'oddot ' + ({ok:'ok', wait:'wait', busy:'wait', err:'err'}[OD.state] || ''); }
   if ($('odCard')) $('odCard').innerHTML = odSettingsHtml();
@@ -822,8 +1665,9 @@ function odUi(){
 function odDirty(){
   if (!odClientId()) return;
   if (isEmpty()) { odMeta.pending = false; odSaveMeta(); return; } // rien à envoyer : OneDrive protégé
-  odMeta.pending = true; odSaveMeta();
-  if (odReady() && odMeta.auto) { if (OD.state !== 'busy') odSet('wait'); odSchedule(4000); }
+  odMeta.pending = true; odMeta.later = false; odSaveMeta(); odUi();
+  if (odReady() && OD.state !== 'busy') odSet('wait');
+  if (odReady() && odMeta.auto) odSchedule(4000);
 }
 function odSchedule(ms){ clearTimeout(OD.timer); OD.timer = setTimeout(() => odSync(), ms); }
 async function odPut(token, name, body, type){
@@ -844,7 +1688,7 @@ async function odSync(manual){
     odSet(OD.again ? 'wait' : 'ok'); if (manual) toast('☁️ OneDrive à jour');
   } catch(e) {
     odMeta.pending = true; odSaveMeta();
-    if (!OD.needLogin) { odSet('err', !navigator.onLine ? 'Hors ligne : envoi dès le retour du réseau.' : odErrText(e)); odSchedule(60000); }
+    if (!OD.needLogin) { odSet('err', !navigator.onLine ? 'Hors ligne : envoi dès le retour du réseau.' : odErrText(e)); if (odMeta.auto) odSchedule(60000); }
   } finally { OD.busy = false; if (OD.again && odMeta.auto) odSchedule(1500); }
 }
 async function odRestore(auto){
@@ -896,10 +1740,14 @@ function odSettingsHtml(){
     <div class="odstat">${dot(st[0])} <b>${esc(st[1] || '')}</b></div>
     ${OD.state === 'wait' && OD.msg ? `<div class="sub">${esc(OD.msg)}</div>` : ''}
     <div class="sub">Compte : <b>${esc(OD.account.username || '')}</b><br>Dernier envoi : <b>${odMeta.last ? fmtDate(odMeta.last) : 'jamais'}</b></div>
-    <label style="display:flex;align-items:center;gap:10px;margin-top:12px;font-size:15px;color:var(--text)">
-      <input type="checkbox" class="check" ${odMeta.auto ? 'checked' : ''} onchange="odMeta.auto=this.checked;odSaveMeta();if(this.checked)odDirty()"> Envoi automatique après chaque modification</label>
+    <label>Sauvegarde sur OneDrive</label>
+    <div class="chips">
+      <button class="chip ${odMeta.auto ? '' : 'on'}" onclick="odMeta.auto=false;odSaveMeta();odUi()">🔔 Me demander (bandeau en haut)</button>
+      <button class="chip ${odMeta.auto ? 'on' : ''}" onclick="odMeta.auto=true;odSaveMeta();odDirty();odUi()">⚡ Automatique</button>
+    </div>
+    <div class="hint">${odMeta.auto ? 'Chaque modification est envoyée toute seule après quelques secondes.' : 'Après une modification, un bandeau apparaît en haut : « Sauvegarder » envoie tout de suite, « Plus tard » le cache jusqu\'à la prochaine modification.'} Les fiches VCE ne sont jamais envoyées.</div>
     ${OD.needLogin ? `<button class="btn primary block" onclick="odLogin()">🔑 Se reconnecter</button>` : ''}
-    <button class="btn block" onclick="odSync(true)">🔄 Synchroniser maintenant</button>
+    <button class="btn block" onclick="odSync(true)">🔄 Sauvegarder maintenant</button>
     <button class="btn block" onclick="odRestore()">📥 Récupérer mes données depuis OneDrive</button>
     <div class="hint">Fichiers : <b>batteries-ve.xlsx</b> (onglets Batteries, Mesures, Carnet) et <b>batteries-ve.json</b> (sauvegarde complète).</div>
     <button class="btn block" onclick="odLogout()">Déconnecter OneDrive</button>`;
@@ -913,6 +1761,7 @@ document.addEventListener('visibilitychange', () => {
 /* ============ Démarrage ============ */
 render();
 odInit();
+tplLoadInfo();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }

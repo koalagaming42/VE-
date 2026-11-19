@@ -3,10 +3,11 @@
 //   et depuis la copie enregistrée sur le téléphone quand il n'y a pas de réseau.
 // - Les données (stock, historique, réglages) ne passent jamais par ce fichier.
 //   Elles restent sur le téléphone, et ne partent que vers TON OneDrive si tu l'as connecté.
-const CACHE = 'batteries-ve-v5';
+// - Les fiches VCE (réponses et fiches vierges) ne partent jamais nulle part : elles restent sur le téléphone.
+const CACHE = 'batteries-ve-v10';
 const FILES = ['./', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png',
-  './msal-browser.min.js', './xlsx-lite.js', './jspdf.umd.min.js', './jspdf.plugin.autotable.min.js'];
+  './msal-browser.min.js', './xlsx-lite.js', './jspdf.umd.min.js', './jspdf.plugin.autotable.min.js', './pdf-lib.min.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
