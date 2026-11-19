@@ -180,7 +180,7 @@ details.sec[open]{padding-bottom:12px}
 <script src="jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ============ Version ============ */
-const APP_VERSION = '3.0';
+const APP_VERSION = '3.1';
 const APP_DATE = '19/11/2026';
 
 /* ============ Données ============ */
@@ -816,12 +816,18 @@ async function odSavePdf(blob, name){
 }
 
 /* ============ Fiches VCE (100 % local) ============
-   - Les réponses des fiches sont enregistrées uniquement sur ce téléphone (clé séparée, jamais envoyée sur OneDrive).
+   - Les réponses des fiches sont enregistrées sur ce téléphone et incluses dans la sauvegarde envoyée sur OneDrive (par le menu Partager).
    - Les fiches vierges (PDF de l'entreprise) sont choisies par le technicien et gardées dans la mémoire locale (IndexedDB).
    - Le PDF rempli est fabriqué sur le téléphone ; il ne sort que si le technicien le partage lui-même. */
 const FKEY = 'batteriesVE_fiches_v1';
 let FICHES = (() => { try { return JSON.parse(localStorage.getItem(FKEY)) || {}; } catch(e){ return {}; } })();
-function saveFiches(){ try { localStorage.setItem(FKEY, JSON.stringify(FICHES)); } catch(e){ toast('⚠️ Mémoire du téléphone pleine : fiche non enregistrée'); } }
+let fichesJson = null;
+function saveFiches(){
+  const j = JSON.stringify(FICHES);
+  try { localStorage.setItem(FKEY, j); } catch(e){ return toast('⚠️ Mémoire du téléphone pleine : fiche non enregistrée'); }
+  if (fichesJson === null) fichesJson = localStorage.getItem(FKEY);
+  if (j !== fichesJson) { fichesJson = j; if (!quietSave) { BK.lastMod = Date.now(); saveBK(); try { bkUi(); } catch(e){} } }
+}
 
 // --- Description des deux fiches : libellé affiché dans l'appli → nom du champ dans le PDF ---
 const ROWS_VFA = ['Visuel', 'Fonct.', 'AP'];
@@ -1212,7 +1218,7 @@ function renderFiche(ve){
   $('view').innerHTML = `
     <div class="card">
       <div class="name">${D.icon} ${esc(D.title)}</div>
-      <div class="sub">🔒 Enregistrée uniquement sur ce téléphone (jamais envoyée sur OneDrive).</div>
+      <div class="sub">🔒 Enregistrée sur ce téléphone, et sur ton OneDrive quand tu envoies la sauvegarde (bandeau en haut).</div>
       <div class="sub"><em class="shr">⇄</em> = info commune : remplie ici, elle l'est aussi sur la ${VCE[otherType(curType)].short} de cette VE. Les observations restent propres à chaque fiche.</div>
       ${pv && fresh ? `<button class="btn block" onclick="copyPrev()">↩️ Reprendre la fiche de la VE du ${fmtDay(pv.start)}</button>` : ''}
       <button class="btn primary block" onclick="makeVce()">📄 Générer la fiche PDF remplie</button>
@@ -1250,7 +1256,7 @@ function vceTabHtml(ve){
       <div class="row"><div class="grow"><div class="name">${VCE[t].icon} ${esc(VCE[t].title)} ${TPL[t] ? '' : '<span class="pill warn">fiche vierge à charger</span>'}</div>
       <div class="sub">${vceSummary(ve, t)}</div></div><div style="font-size:22px;color:var(--muted)">›</div></div></div>`).join('')}
     ${['08', '11'].filter(t => ficheOf(ve.id, t) && TPL[t]).length > 1 ? `<button class="btn primary block" onclick="mailAllVce('${ve.id}')">✉️ Envoyer les 2 fiches dans un seul mail</button>` : ''}
-    <div class="sub center">🔒 Les fiches restent sur ce téléphone.</div>`;
+    <div class="sub center">🔒 Fiches enregistrées sur ce téléphone · incluses dans ta sauvegarde OneDrive.</div>`;
 }
 
 // --- Signature au doigt : plein écran, en portrait ou en paysage ---
@@ -1259,7 +1265,7 @@ const mySig = () => { try { return localStorage.getItem(SIGKEY) || ''; } catch(e
 let SIG = null;
 function openSig(who){ sigPad(who === 'client' ? 'Signature du client' : 'Signature du technicien', who === 'tech' && mySig(), url => { fset('sig_' + who, url); rerenderFiche(); }, curFiche().v['sig_' + who] ? () => { fset('sig_' + who, ''); rerenderFiche(); } : null); }
 function useMySig(){ const s = mySig(); if (!s) return toast('Aucune signature enregistrée (Réglages)'); fset('sig_tech', s); rerenderFiche(); toast('✓ Ta signature est ajoutée'); }
-function editMySig(){ sigPad('Ma signature (enregistrée sur ce téléphone)', false, url => { try { localStorage.setItem(SIGKEY, url); } catch(e){} render(); toast('✓ Signature enregistrée'); }, mySig() ? () => { localStorage.removeItem(SIGKEY); render(); toast('Signature supprimée'); } : null); }
+function editMySig(){ sigPad('Ma signature (enregistrée sur ce téléphone)', false, url => { try { localStorage.setItem(SIGKEY, url); } catch(e){} BK.lastMod = Date.now(); saveBK(); render(); toast('✓ Signature enregistrée'); }, mySig() ? () => { localStorage.removeItem(SIGKEY); render(); toast('Signature supprimée'); } : null); }
 function sigPad(title, offerMine, onSave, onDelete){
   const el = document.createElement('div'); el.className = 'sigfull';
   el.innerHTML = `<div class="sigbar"><b>✍️ ${esc(title)}</b><div class="grow"></div>
@@ -1344,7 +1350,7 @@ async function delTpl(k){
 }
 function tplSettingsHtml(){
   const nF = Object.values(FICHES).reduce((s, x) => s + Object.keys(x || {}).length, 0);
-  return `<div class="sub">Choisis une fois les fiches vierges de l'entreprise (PDF) depuis ton téléphone. Elles sont gardées <b>uniquement dans la mémoire de l'appli</b> : ni GitHub, ni OneDrive.</div>
+  return `<div class="sub">Choisis une fois les fiches vierges de l'entreprise (PDF) depuis ton téléphone. Elles sont gardées <b>uniquement dans la mémoire de l'appli</b> : ni GitHub, ni dans la sauvegarde OneDrive (sur un nouveau téléphone, recharge-les ici).</div>
     ${['08', '11'].map(k => `<div class="odstat">${TPL[k] ? '✅' : '⬜'} <div class="grow"><b>${VCE[k].title}</b><div class="sub" style="margin:0">${TPL[k] ? `${esc(TPL[k].name)} · ${Math.round(TPL[k].size / 1024)} Ko · chargée le ${fmtDay(TPL[k].date)}` : 'pas encore chargée'}</div></div>
       ${TPL[k] ? `<button class="btn small" onclick="delTpl('${k}')">Retirer</button>` : ''}</div>`).join('')}
     <button class="btn primary block" onclick="$('impTpl').click()">📄 Choisir les fiches vierges (PDF)</button>
@@ -1675,7 +1681,7 @@ function renderSettings(){
     </div>
     <h2>✍️ Ma signature</h2>
     <div class="card">
-      <div class="sub">Enregistrée <b>uniquement sur ce téléphone</b> (jamais sur OneDrive). Elle se met toute seule dans le cadre « Signature » du technicien de chaque nouvelle fiche VCE.</div>
+      <div class="sub">Enregistrée sur ce téléphone et dans ta sauvegarde OneDrive. Elle se met toute seule dans le cadre « Signature » du technicien de chaque nouvelle fiche VCE.</div>
       ${mySig() ? `<div class="sigbox" style="height:90px;margin:8px 0"><img src="${mySig()}" alt="ma signature"></div>` : ''}
       <button class="btn ${mySig() ? '' : 'primary'} block" onclick="editMySig()">${mySig() ? '✏️ Refaire ma signature' : '✍️ Enregistrer ma signature'}</button>
     </div>
@@ -1710,7 +1716,7 @@ function renderSettings(){
       <button class="btn block" onclick="pickBackup()">📥 Charger une sauvegarde</button>
       <div class="hint">Pour charger : touche <b>☰</b> (ou « Parcourir »), choisis <b>OneDrive</b> puis le fichier <b>batteries-ve ….txt</b> le plus récent.<br>
       📱 <b>Profil pro / perso</b> : pour ton OneDrive <b>pro</b>, ouvre l'appli dans le Chrome du profil pro ; pour le OneDrive <b>perso</b>, dans le Chrome perso. Chaque profil a ses propres données.<br>
-      Les fiches VCE et ta signature ne sont jamais dans la sauvegarde.</div>
+      La sauvegarde contient aussi <b>tes fiches VCE</b> (réponses, signatures) et ta signature enregistrée. Seules les fiches vierges de l'entreprise n'y sont pas : sur un nouveau téléphone, recharge-les dans « Fiches VCE ».</div>
     </div>
     <h2>Sauvegarde & export</h2>
     <div class="card">
@@ -1737,7 +1743,7 @@ function download(name, content, type){
 }
 /* ============ Sauvegarde OneDrive par le menu Partager (l'appli ne se connecte jamais à OneDrive) ============ */
 const BK_APP = 'batteries-ve';
-const hasData = () => S.ves.length + S.sites.length > 0;
+const hasData = () => S.ves.length + S.sites.length > 0 || Object.keys(FICHES).length > 0;
 const hm = t => new Date(t).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
 const whenTxt = t => new Date(t).toDateString() === new Date().toDateString() ? `aujourd'hui à ${hm(t)}`
   : new Date(t).toDateString() === new Date(Date.now() - 864e5).toDateString() ? `hier à ${hm(t)}` : `le ${fmtDay(t)} à ${hm(t)}`;
@@ -1752,7 +1758,7 @@ function bkUi(){
 function bkFile(){
   const d = new Date(), p = n => String(n).padStart(2, '0');
   const name = `${BK_APP} ${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}h${p(d.getMinutes())}.txt`;
-  const body = JSON.stringify({app: BK_APP, version: APP_VERSION, updated: BK.lastMod || Date.now(), data: S}, null, 1);
+  const body = JSON.stringify({app: BK_APP, version: APP_VERSION, updated: BK.lastMod || Date.now(), data: S, fiches: FICHES, signature: mySig() || ''}, null, 1);
   return {name, body};
 }
 async function sendBackup(){
@@ -1789,19 +1795,25 @@ async function loadBackup(file){
   let o; try { o = JSON.parse(txt); } catch(e){
     return fail(txt[0] !== '{' ? `Mauvais fichier choisi : « ${esc(file.name)} » n'est pas une sauvegarde Batteries VE.` : `Le fichier « ${esc(file.name)} » est abîmé (contenu incomplet ou modifié). Choisis une autre sauvegarde.`);
   }
-  let data, updated;
+  let data, updated, fiches = null, sig = '';
   if (o && o.app && o.data !== undefined) {
     if (o.app !== BK_APP) return fail(`Mauvais fichier choisi : c'est une sauvegarde d'une autre appli (« ${esc(String(o.app))} »), pas de Batteries VE.`);
     data = o.data; updated = +o.updated || 0;
+    if (o.fiches && typeof o.fiches === 'object' && !Array.isArray(o.fiches)) fiches = o.fiches;
+    if (typeof o.signature === 'string' && o.signature.startsWith('data:image/')) sig = o.signature;
   } else if (o && Array.isArray(o.ves)) { data = o; updated = Date.parse(o.exportedAt || '') || 0; } // anciennes sauvegardes .json
   else return fail(`Mauvais fichier choisi : « ${esc(file.name)} » n'est pas une sauvegarde Batteries VE.`);
   if (!data || !Array.isArray(data.ves) || !Array.isArray(data.sites || [])) return fail(`Le fichier « ${esc(file.name)} » est abîmé : les données sont incomplètes.`);
   const apply = () => {
-    snapshot(); delete data.exportedAt;
+    snapshot(); undoExtra = {fiches: JSON.stringify(FICHES), sig: mySig()}; delete data.exportedAt;
     S = Object.assign(defaults(), data, {settings: Object.assign(defaults().settings, data.settings || {})});
-    quietSave = true; save(); quietSave = false;
+    quietSave = true; save();
+    if (fiches) { FICHES = fiches; saveFiches(); }
+    if (sig) try { localStorage.setItem(SIGKEY, sig); } catch(e){}
+    quietSave = false;
     BK.lastMod = updated || Date.now(); BK.lastSent = BK.lastMod; saveBK();
-    closeSheet(); render(); offerUndo(`📥 Sauvegarde chargée : ${S.ves.length} VE, ${S.sites.length} site${S.sites.length > 1 ? 's' : ''}`);
+    const nF = Object.values(FICHES).reduce((n, x) => n + Object.keys(x || {}).length, 0);
+    closeSheet(); render(); offerUndo(`📥 Sauvegarde chargée : ${S.ves.length} VE, ${S.sites.length} site${S.sites.length > 1 ? 's' : ''}, ${nF} fiche${nF > 1 ? 's' : ''} VCE`);
   };
   window._bkApply = apply;
   if (!hasData() || updated > (BK.lastMod || 0)) return apply();
@@ -1876,9 +1888,11 @@ function offerUndo(msg){
   document.body.classList.add('undo-on');
   clearTimeout(undoTimer); undoTimer = setTimeout(hideUndo, 15000);
 }
-function hideUndo(){ undoSnap = null; clearTimeout(undoTimer); $('undoBar').classList.remove('show'); document.body.classList.remove('undo-on'); }
+let undoExtra = null;
+function hideUndo(){ undoSnap = null; undoExtra = null; clearTimeout(undoTimer); $('undoBar').classList.remove('show'); document.body.classList.remove('undo-on'); }
 function undo(){
   if (!undoSnap) return;
+  if (undoExtra) { const x = undoExtra; FICHES = JSON.parse(x.fiches); saveFiches(); try { x.sig ? localStorage.setItem(SIGKEY, x.sig) : localStorage.removeItem(SIGKEY); } catch(e){} }
   S = JSON.parse(undoSnap); hideUndo(); save(); closeSheet(); render(); toast('↩️ Action annulée');
 }
 window.addEventListener('resize', setNavH);
