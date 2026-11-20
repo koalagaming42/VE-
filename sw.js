@@ -4,13 +4,16 @@
 // - Les données (stock, historique, réglages) ne passent jamais par ce fichier.
 //   Elles restent sur le téléphone, et ne partent que vers TON OneDrive si tu l'as connecté.
 // - Les fiches VCE (réponses et fiches vierges) ne partent jamais nulle part : elles restent sur le téléphone.
-const CACHE = 'batteries-ve-v23';
+const CACHE = 'batteries-ve-v25';
 const FILES = ['./', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png',
   './msal-browser.min.js', './xlsx-lite.js', './jspdf.umd.min.js', './jspdf.plugin.autotable.min.js', './pdf-lib.min.js'];
+// Lecteur PDF pour l'aperçu des fiches (ajouté en v3.9) : s'il manque sur GitHub, l'appli s'installe quand même
+const OPTIONAL = ['./pdf.min.mjs', './pdf.worker.min.mjs'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES).then(() => Promise.all(OPTIONAL.map(f => c.add(f).catch(() => {})))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {

@@ -144,6 +144,14 @@ details.sec[open]{padding-bottom:12px}
 .cfmmsg{font-size:16px;line-height:1.4;margin-bottom:16px;color:var(--text)}
 .cfmbtns{display:flex;gap:10px}.cfmbtns .btn{flex:1;margin:0}
 .btn.danger{background:var(--bad);color:#fff;border-color:var(--bad)}
+.pview{position:fixed;inset:0;z-index:90;background:#525659;display:flex;flex-direction:column}
+.pview .ph{display:flex;align-items:center;gap:8px;padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top));background:#16212a;color:#fff}
+.pview .ph .t{flex:1;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pview .ph button{background:#ffffff22;color:#fff;border:0;border-radius:10px;min-width:40px;height:40px;font-size:20px}
+.pview .pb{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+.pview .pz{margin:0 auto;padding:10px 8px calc(20px + env(safe-area-inset-bottom));width:100%;box-sizing:border-box}
+.pview canvas{display:block;width:100%;height:auto;background:#fff;margin:0 auto 10px;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.pview .pm{color:#fff;text-align:center;padding:30px 16px;font-size:15px}
 .sigfull{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column}
 .sigbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:calc(env(safe-area-inset-top) + 8px) 10px 8px;background:var(--card);border-bottom:1px solid var(--line)}
 .sigbar .btn{margin:0}
@@ -185,7 +193,7 @@ details.sec[open]{padding-bottom:12px}
 <script src="jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ============ Version ============ */
-const APP_VERSION = '3.7';
+const APP_VERSION = '3.9';
 const APP_DATE = '19/11/2026';
 
 /* ============ Données ============ */
@@ -801,7 +809,7 @@ function makePdf(id){
     <div class="sub">${esc(name)}</div>
     <button class="btn primary block" onclick="sharePdf()">📤 Partager (mail, WhatsApp, Drive…)</button>
     <button class="btn block" onclick="download(lastPdf.name, lastPdf.blob, 'application/pdf')">⬇️ Télécharger sur le téléphone</button>
-    <button class="btn block" onclick="window.open(URL.createObjectURL(lastPdf.blob), '_blank')">👁️ Voir le rapport</button>
+    <button class="btn block" onclick="viewPdf(lastPdf.blob, lastPdf.name)">👁️ Voir le rapport</button>
     <div class="hint" id="pdfOd">${odReady() ? '☁️ Envoi d\'une copie sur OneDrive › Rapports…' : 'Connecte OneDrive dans les Réglages pour garder automatiquement une copie de chaque rapport.'}</div>
     <button class="btn block" onclick="closeSheet()">Fermer</button>`);
   if (odReady()) odSavePdf(blob, name);
@@ -1375,6 +1383,69 @@ function loadPdfLib(){
   if (window.PDFLib) return Promise.resolve();
   return new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'pdf-lib.min.js'; s.onload = res; s.onerror = () => rej(new Error('module PDF introuvable : ouvre l\'appli une fois avec du réseau')); document.head.appendChild(s); });
 }
+// --- Aperçu d'un PDF dans l'appli (Chrome Android ne sait pas afficher un PDF : il le télécharge) ---
+let pdfjsP = null;
+function loadPdfJs(){
+  if (!pdfjsP) pdfjsP = import('./pdf.min.mjs').then(m => { m.GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs'; return m; }).catch(e => { pdfjsP = null; throw e; });
+  return pdfjsP;
+}
+let PV = null;
+async function viewPdf(blob, title){
+  closePdfView(true);
+  const el = document.createElement('div'); el.className = 'pview';
+  el.innerHTML = `<div class="ph"><button onclick="pvZoom(1/1.5)" aria-label="Dézoomer">−</button><button onclick="pvZoom(1.5)" aria-label="Zoomer">+</button><div class="t">${esc(title || 'Aperçu')}</div><button onclick="closePdfView()" aria-label="Fermer">✕</button></div>
+    <div class="pb"><div class="pz"><div class="pm">Chargement de l'aperçu…</div></div></div>`;
+  document.body.appendChild(el);
+  PV = {el, zoom: 1, box: el.querySelector('.pb'), pz: el.querySelector('.pz')};
+  try { history.pushState({pview: 1}, ''); PV.hist = true; } catch(e){}
+  pvTouch(PV);
+  try {
+    const pdfjs = await loadPdfJs();
+    const doc = await pdfjs.getDocument({data: new Uint8Array(await blob.arrayBuffer()), isEvalSupported: false}).promise;
+    if (!PV || PV.el !== el) return;
+    PV.pz.innerHTML = '';
+    const dpr = Math.min(window.devicePixelRatio || 1, 3), cssW = Math.max(320, PV.box.clientWidth - 16);
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i), v1 = page.getViewport({scale: 1});
+      const scale = Math.min(cssW * dpr * 2, 3000) / v1.width, vp = page.getViewport({scale}); // net jusqu'au zoom ×2
+      const cv = document.createElement('canvas'); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+      PV.pz.appendChild(cv);
+      await page.render({canvasContext: cv.getContext('2d'), viewport: vp}).promise;
+      if (!PV || PV.el !== el) return;
+    }
+    doc.destroy();
+  } catch(e) {
+    if (!PV || PV.el !== el) return;
+    PV.pz.innerHTML = `<div class="pm">⚠️ Aperçu impossible${navigator.onLine ? '' : ' hors ligne'} : le lecteur PDF n'est pas encore sur ce téléphone.<br><br>Ouvre l'appli une fois avec du réseau (et vérifie que pdf.min.mjs et pdf.worker.min.mjs sont bien sur GitHub).</div>`;
+  }
+}
+function closePdfView(silent){
+  if (!PV) return;
+  PV.el.remove(); const h = PV.hist; PV = null;
+  if (h && !silent) try { history.back(); } catch(e){}
+}
+window.addEventListener('popstate', () => { if (PV) { PV.hist = false; closePdfView(); } });
+function pvSetZoom(z, cx, cy){
+  if (!PV) return;
+  const b = PV.box, old = PV.zoom; z = Math.max(1, Math.min(4, z)); if (Math.abs(z - old) < .001) return;
+  cx = cx ?? b.clientWidth / 2; cy = cy ?? b.clientHeight / 2;
+  const px = (b.scrollLeft + cx) / old, py = (b.scrollTop + cy) / old;
+  PV.zoom = z; PV.pz.style.width = (z * 100) + '%';
+  b.scrollLeft = px * z - cx; b.scrollTop = py * z - cy;
+}
+function pvZoom(k){ if (PV) pvSetZoom(PV.zoom * k); }
+function pvTouch(pv){
+  const b = pv.box; let d0 = 0, z0 = 1, lastTap = 0;
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  b.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) { d0 = dist(e.touches); z0 = pv.zoom; e.preventDefault(); }
+    else if (e.touches.length === 1) { const now = Date.now(); if (now - lastTap < 300) { const r = b.getBoundingClientRect(); pvSetZoom(pv.zoom > 1.2 ? 1 : 2.5, e.touches[0].clientX - r.left, e.touches[0].clientY - r.top); e.preventDefault(); lastTap = 0; } else lastTap = now; }
+  }, {passive: false});
+  b.addEventListener('touchmove', e => {
+    if (e.touches.length === 2 && d0) { e.preventDefault(); const r = b.getBoundingClientRect(); pvSetZoom(z0 * dist(e.touches) / d0, (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left, (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top); }
+  }, {passive: false});
+  b.addEventListener('touchend', e => { if (e.touches.length < 2) d0 = 0; });
+}
 async function importTpl(files){
   if (!files || !files.length) return;
   try { await loadPdfLib(); } catch(e){ return toast(e.message); }
@@ -1433,13 +1504,13 @@ async function buildVce(ve, type){
   const form = doc.getForm(), byName = {};
   form.getFields().forEach(x => { byName[x.getName()] = x; try { if (x instanceof PDFTextField) x.setText(''); else if (x instanceof PDFCheckBox) x.uncheck(); } catch(e){} });
   // Taille d'écriture : toujours celle prévue par la fiche (8 si la fiche laisse « automatique »), jamais réduite.
-  // Texte trop long sur une ligne : coupé au bord de la case, avec « … ».
+  // Texte trop long sur une ligne : écrit en entier (lisible et modifiable dans le PDF modifiable),
+  // calé à gauche pour que la coupe se fasse à la fin de la case dans le PDF non modifiable.
   const baseSize = x => { let da = ''; try { const w = x.acroField.getWidgets()[0]; da = (w.getDefaultAppearance && w.getDefaultAppearance()) || x.acroField.getDefaultAppearance() || ''; } catch(e){} const m = /(\d+(?:\.\d+)?)\s+Tf/.exec(da), sz = m ? +m[1] : 0; return sz > 0 ? sz : 8; };
-  const clip = (txt, sz, w) => { if (helv.widthOfTextAtSize(txt, sz) <= w) return txt; let t = txt; while (t && helv.widthOfTextAtSize(t.trimEnd() + '…', sz) > w) t = t.slice(0, -1); return t.trimEnd() + '…'; };
   const setTxt = (x, val, base) => {
     const sz = base || baseSize(x), ml = !!(x.isMultiline && x.isMultiline());
     let txt = ml ? pdfTxt(val) : pdfTxt(val).replace(/\s*\n\s*/g, ' · ');
-    if (!ml) { const R = x.acroField.getWidgets()[0].getRectangle(); txt = clip(txt, sz, R.width - 4); }
+    if (!ml) { const R = x.acroField.getWidgets()[0].getRectangle(); if (helv.widthOfTextAtSize(txt, sz) > R.width - 4) try { x.setAlignment(PDFLib.TextAlignment.Left); } catch(e){} }
     try { x.setText(txt); } catch(e){ try { x.setMaxLength(undefined); x.setText(txt); } catch(e2){} }
     try { x.setFontSize(sz); } catch(e){}
     try { x.acroField.getWidgets().forEach(w => { const da = w.getDefaultAppearance && w.getDefaultAppearance(); if (da) w.setDefaultAppearance(da.replace(/(\d+(?:\.\d+)?)(\s+Tf)/, sz + '$2')); }); } catch(e){}
@@ -1719,7 +1790,7 @@ async function makeVce(){
       <div class="sub">${esc(name)}${r.pages > 1 ? ` · ${r.pages} pages` : ''}</div>
       ${r.missing.length ? `<div class="alertbar">⚠️ <div class="grow">${r.missing.length} case${r.missing.length > 1 ? 's' : ''} introuvable${r.missing.length > 1 ? 's' : ''} dans ta fiche vierge (autre version du formulaire ?) : ${esc(r.missing.slice(0, 4).join(', '))}${r.missing.length > 4 ? '…' : ''}</div></div>` : ''}
       <button class="btn primary block" onclick="mailVce()">✉️ Envoyer par mail (modifiable + non modifiable)</button>
-      <button class="btn block" onclick="window.open(URL.createObjectURL(lastPdf.blob), '_blank')">👁️ Voir la fiche</button>
+      <button class="btn block" onclick="viewPdf(lastPdf.blob, lastPdf.name)">👁️ Voir la fiche</button>
       <button class="btn block" onclick="download(lastPdf.name, lastPdf.blob, 'application/pdf')">⬇️ Télécharger (non modifiable)</button>
       <button class="btn block" onclick="lastVce.files.filter(x => x.editable).forEach(x => download(x.name, x.blob, 'application/pdf'))">⬇️ Télécharger (modifiable)</button>
       <button class="btn block" onclick="sharePdf()">📤 Partager…</button>
