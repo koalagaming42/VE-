@@ -185,7 +185,7 @@ details.sec[open]{padding-bottom:12px}
 <script src="jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ============ Version ============ */
-const APP_VERSION = '3.6';
+const APP_VERSION = '3.7';
 const APP_DATE = '19/11/2026';
 
 /* ============ Données ============ */
@@ -843,6 +843,7 @@ const VCE = {
     short: 'VCE 08', title: 'VCE 08 · Intrusion', ctype: 'alarme', icon: '🚨',
     detect: 'Perif AP 1',
     fixed: ['Centrale', 'Transmetteur principal', 'Transmetteur secours'], alimMax: 8, hasRef: false,
+    cover: ['ID SITE', 'Client', 'Observations complémentaires  propositions damélioration'], // pointillés d'écriture imprimés sous ces cases : le gris passe par-dessus pour les cacher
     alim: n => ({loc: n >= 4 ? 'Transmetteur secours' + n : null, ref: null, ch: 'Charge batt ' + n, deb: 'batt debut ' + n, fin: 'batt fin ' + n, conso: 'batt conso ' + n}),
     page: ['Page 1/', 'Page /1'],
     sig: {client: [121, 32, 196, 22], tech: [372, 32, 132, 22]},
@@ -1431,12 +1432,19 @@ async function buildVce(ve, type){
   const helv = await doc.embedFont(StandardFonts.Helvetica);
   const form = doc.getForm(), byName = {};
   form.getFields().forEach(x => { byName[x.getName()] = x; try { if (x instanceof PDFTextField) x.setText(''); else if (x instanceof PDFCheckBox) x.uncheck(); } catch(e){} });
-  const setTxt = (x, val, size) => {
-    if (size === 'fit') { const R = x.acroField.getWidgets()[0].getRectangle(), w1 = helv.widthOfTextAtSize(pdfTxt(val), 1) || 1; size = Math.max(3.6, Math.min(7.5, (R.height - 1.5) * .85, (R.width - 4) / w1)); }
-    try { const ml = x.isMultiline && x.isMultiline(); x.setText(ml ? pdfTxt(val) : pdfTxt(val).replace(/\s*\n\s*/g, ' · ')); } catch(e){ try { x.setMaxLength(undefined); x.setText(pdfTxt(val)); } catch(e2){} }
-    try { x.setFontSize(size || 0); } catch(e){}
+  // Taille d'écriture : toujours celle prévue par la fiche (8 si la fiche laisse « automatique »), jamais réduite.
+  // Texte trop long sur une ligne : coupé au bord de la case, avec « … ».
+  const baseSize = x => { let da = ''; try { const w = x.acroField.getWidgets()[0]; da = (w.getDefaultAppearance && w.getDefaultAppearance()) || x.acroField.getDefaultAppearance() || ''; } catch(e){} const m = /(\d+(?:\.\d+)?)\s+Tf/.exec(da), sz = m ? +m[1] : 0; return sz > 0 ? sz : 8; };
+  const clip = (txt, sz, w) => { if (helv.widthOfTextAtSize(txt, sz) <= w) return txt; let t = txt; while (t && helv.widthOfTextAtSize(t.trimEnd() + '…', sz) > w) t = t.slice(0, -1); return t.trimEnd() + '…'; };
+  const setTxt = (x, val, base) => {
+    const sz = base || baseSize(x), ml = !!(x.isMultiline && x.isMultiline());
+    let txt = ml ? pdfTxt(val) : pdfTxt(val).replace(/\s*\n\s*/g, ' · ');
+    if (!ml) { const R = x.acroField.getWidgets()[0].getRectangle(); txt = clip(txt, sz, R.width - 4); }
+    try { x.setText(txt); } catch(e){ try { x.setMaxLength(undefined); x.setText(txt); } catch(e2){} }
+    try { x.setFontSize(sz); } catch(e){}
+    try { x.acroField.getWidgets().forEach(w => { const da = w.getDefaultAppearance && w.getDefaultAppearance(); if (da) w.setDefaultAppearance(da.replace(/(\d+(?:\.\d+)?)(\s+Tf)/, sz + '$2')); }); } catch(e){}
   };
-  const T = (name, val, size) => { if (!name) return; const x = byName[name]; if (!x) return missing.add(name); if (val === undefined || val === null || val === '') return; setTxt(x, val, size); };
+  const T = (name, val, size) => { if (!name) return; const x = byName[name]; if (!x) return missing.add(name); if (val === undefined || val === null || val === '') return; setTxt(x, val); }; // la taille vient toujours de la fiche
   const C = name => { if (!name) return; const x = byName[name]; if (!x) return missing.add(name); try { x.check(); } catch(e){} };
   const rectOf = name => { const x = byName[name]; return x ? x.acroField.getWidgets()[0].getRectangle() : null; };
   // Cases « Localisation » pré-imprimées (VCE 08), relevées avant tout décalage
@@ -1470,17 +1478,14 @@ async function buildVce(ve, type){
   };
   D.sections.forEach(s => s.items.forEach(walk));
   const alimAll = f.alims.map((r, i) => [i + 1, rowVals(r, ve)]), lecAll = (f.lecteurs || []).slice().sort(cmpLec);
-  // Une seule taille de texte pour toute la colonne Localisation (la plus grande qui convient à toutes les lignes)
-  const locR = rectOf(D.alim(D.fixed.length + 1).loc);
-  const LOCSZ = !locR ? 7 : Math.max(3.6, Math.min(7, (locR.height - 1.5) * .85, ...alimAll.filter(([n]) => n > D.fixed.length).map(([, v]) => (locR.width - 4) / (helv.widthOfTextAtSize(pdfTxt(v.locFull || v.loc || ''), 1) || 1))));
-  const alimVals = (n, v) => { const F = D.alim(n); return [[F.loc, n > D.fixed.length ? (v.locFull || v.loc) : null, LOCSZ], [F.ref, v.ref, 7], [F.ch, v.ch, 8], [F.deb, v.deb, 8], [F.fin, v.fin, 8], [F.conso, v.conso, 8]]; };
+  const alimVals = (n, v) => { const F = D.alim(n); return [[F.loc, n > D.fixed.length ? (v.locFull || v.loc) : null, 0], [F.ref, v.ref, 7], [F.ch, v.ch, 8], [F.deb, v.deb, 8], [F.fin, v.fin, 8], [F.conso, v.conso, 8]]; };
   const lecVals = (n, l) => { const F = D.lec(n); return [[F.n, l.n, 8], [F.loc, l.loc, 8], [F.type, l.type, 8], ...ESSAIS.map(([k]) => [F[k], l[k], 7]), [F.v, l.v, 8]]; };
   alimAll.slice(0, D.alimMax).forEach(([n, v]) => alimVals(n, v).forEach(([nm, val, sz]) => nm && T(nm, val, sz)));
   if (D.lecMax) lecAll.slice(0, D.lecMax).forEach((l, i) => lecVals(i + 1, l).forEach(([nm, val, sz]) => T(nm, val, sz)));
 
   // --- Agrandissement : lignes ajoutées dans les tableaux, cadre Observations rallongé, la suite décalée ---
   const nA = Math.max(0, alimAll.length - D.alimMax), nL = D.lecMax ? Math.max(0, lecAll.length - D.lecMax) : 0;
-  const obsName = D.sections.find(s => s.id === 'obs').items.find(it => it.t === 'area').pdf, OBS = 9, LH = OBS * 1.16;
+  const obsName = D.sections.find(s => s.id === 'obs').items.find(it => it.t === 'area').pdf, OBS = byName[obsName] ? baseSize(byName[obsName]) : 8, LH = OBS * 1.16;
   let nO = 0;
   const obsAll = obsFull(ve, type);
   if (obsAll && rectOf(obsName)) {
@@ -1570,7 +1575,7 @@ async function buildVce(ve, type){
         tf.addToPage(pages[k], {x: R.x, y: PH - t - R.height, width: R.width, height: R.height, borderWidth: 0, backgroundColor: bg || grayscale(.83), font: helv});
         try { tf.acroField.getWidgets()[0].getAppearanceCharacteristics().dict.delete(PDFLib.PDFName.of('BC')); } catch(er){} // pas de cadre noir autour
         try { tf.setAlignment(tpl.getAlignment()); } catch(er){}
-        const [, val, sz] = vals[j]; if (val !== undefined && val !== null && val !== '') setTxt(tf, val, sz);
+        const [, val] = vals[j]; if (val !== undefined && val !== null && val !== '') setTxt(tf, val, baseSize(tpl)); // même taille que la ligne d'origine
       });
     };
     const eA = events.find(e => e.kind === 'alim'), eL = events.find(e => e.kind === 'lec');
@@ -1612,6 +1617,7 @@ async function buildVce(ve, type){
   if (events.length) doc.removePage(0);
   // Les cases grises : le gris est peint SOUS le dessin de la fiche (au lieu d'être par-dessus), pour que
   // les lignes du quadrillage restent visibles même quand les tableaux sont bien remplis
+  const overlay = []; // gris dessiné par-dessus la fiche (cache les pointillés d'écriture : ID Site, Client, Observations)
   const findPage = w => { const pr = w.P(); return doc.getPages().find(pg => pg.ref === pr) || doc.getPage(0); };
   form.getFields().forEach(x => {
     if (!(x instanceof PDFTextField)) return;
@@ -1620,7 +1626,7 @@ async function buildVce(ve, type){
       const col = bgc.length === 1 ? grayscale(bgc[0]) : bgc.length === 3 ? rgb(bgc[0], bgc[1], bgc[2]) : null;
       mk.dict.delete(PDFLib.PDFName.of('BG')); mk.dict.delete(PDFLib.PDFName.of('BC')); // ni fond par-dessus, ni petit cadre en double
       try { const bs = w.getBorderStyle(); if (bs) bs.dict.set(PDFLib.PDFName.of('W'), PDFLib.PDFNumber.of(0)); } catch(e){}
-      if (col) { const R = w.getRectangle(); underlay.push([findPage(w), {x: R.x, y: R.y, width: R.width, height: R.height, color: col}]); }
+      if (col) { const R = w.getRectangle(); ((D.cover || []).includes(x.getName()) ? overlay : underlay).push([findPage(w), {x: R.x, y: R.y, width: R.width, height: R.height, color: col}]); }
     });
   });
   const byPage = new Map(); underlay.forEach(([pg, r]) => { if (!byPage.has(pg)) byPage.set(pg, []); byPage.get(pg).push(r); });
@@ -1630,6 +1636,12 @@ async function buildVce(ve, type){
     pg.node.normalize(); const arr = pg.node.Contents(); // le gris passe en tout premier, sous le reste
     if (arr instanceof PDFLib.PDFArray) arr.insert(0, ref); else pg.node.set(PDFLib.PDFName.of('Contents'), doc.context.obj([ref, arr]));
   }
+  overlay.forEach(([pg, r]) => {
+    const ops = PDFLib.drawRectangle({x: r.x, y: r.y, width: r.width, height: r.height, borderWidth: 0, color: r.color, rotate: PDFLib.degrees(0), xSkew: PDFLib.degrees(0), ySkew: PDFLib.degrees(0)});
+    const ref = doc.context.register(doc.context.contentStream([PDFLib.pushGraphicsState(), ...ops, PDFLib.popGraphicsState()]));
+    pg.node.normalize(); const arr = pg.node.Contents(); // le gris passe en dernier, par-dessus les pointillés (le texte de la case reste au-dessus)
+    if (arr instanceof PDFLib.PDFArray) arr.push(ref); else pg.node.set(PDFLib.PDFName.of('Contents'), doc.context.obj([arr, ref]));
+  });
   form.getFields().forEach(x => { if (x instanceof PDFCheckBox) try { x.updateAppearances(tickProvider); } catch(e){} });
   form.updateFieldAppearances(helv);
   doc.setTitle(`${D.short} ${siteName(ve.siteId)}`); doc.setProducer('Batteries VE (local)'); doc.setCreator('Batteries VE');
