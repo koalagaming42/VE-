@@ -139,6 +139,11 @@ details.sec[open]{padding-bottom:12px}
 @media (prefers-color-scheme: dark){.ess.ok{background:#173a26;color:#7fd8a1}.ess.nok{background:#3a1d1d;color:#ff8f8f}}
 .sigbox{width:100%;height:84px;border:2px dashed var(--line);border-radius:10px;background:var(--bg);color:var(--muted);font-size:14px;padding:4px;display:flex;align-items:center;justify-content:center}
 .sigbox img{max-width:100%;max-height:100%;background:#fff;border-radius:6px}
+.cfm{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:20px}
+.cfmbox{background:var(--card);border-radius:16px;padding:18px;max-width:380px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.cfmmsg{font-size:16px;line-height:1.4;margin-bottom:16px;color:var(--text)}
+.cfmbtns{display:flex;gap:10px}.cfmbtns .btn{flex:1;margin:0}
+.btn.danger{background:var(--bad);color:#fff;border-color:var(--bad)}
 .sigfull{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column}
 .sigbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:calc(env(safe-area-inset-top) + 8px) 10px 8px;background:var(--card);border-bottom:1px solid var(--line)}
 .sigbar .btn{margin:0}
@@ -180,7 +185,7 @@ details.sec[open]{padding-bottom:12px}
 <script src="jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ============ Version ============ */
-const APP_VERSION = '3.1';
+const APP_VERSION = '3.6';
 const APP_DATE = '19/11/2026';
 
 /* ============ Données ============ */
@@ -217,6 +222,7 @@ const saveBK = () => { try { localStorage.setItem(BKKEY, JSON.stringify(BK)); } 
 let quietSave = false;
 function save(){
   sortCoffrets();
+  try { syncFichesAll(); } catch(e){}
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){}
   if (!quietSave) { BK.lastMod = Date.now(); saveBK(); try { bkUi(); } catch(e){} }
   updateBadges();
@@ -306,6 +312,7 @@ function coffretMissing(c){
   else if (c.bats.some(b => !(b.cap > 0))) m.push('capacité batterie');
   if (num(c.vOn) === null) m.push('sous tension');
   if (num(c.vOff) === null) m.push('hors tension');
+  if (num(c.vFin) === null) m.push('bat. fin');
   if (num(c.conso) === null) m.push('conso');
   return m;
 }
@@ -426,9 +433,9 @@ function saveSite(id){
   ['name', 'idSite', 'client', 'addr', 'contact', 'note'].forEach(k => { const x = v(k); if (x) site[k] = x; else if (k !== 'name') delete site[k]; });
   site.name = name; save(); closeSheet(); go('site', site.id); toast(id ? 'Site enregistré' : 'Site créé');
 }
-function deleteSite(id){
+async function deleteSite(id){
   const n = S.ves.filter(v => v.siteId === id).length;
-  if (!confirm(n ? `Supprimer ce site et ses ${n} VE (mesures comprises) ?` : 'Supprimer ce site ?')) return;
+  if (!await askConfirm(n ? `Supprimer ce site et ses ${n} VE (mesures comprises) ?` : 'Supprimer ce site ?')) return;
   snapshot(); // les fiches VCE liées restent en mémoire : « Annuler » restaure tout
   S.sites = S.sites.filter(x => x.id !== id); S.ves = S.ves.filter(v => v.siteId !== id); save(); go('sites'); offerUndo('Site supprimé');
 }
@@ -515,15 +522,15 @@ function saveVeEdit(id){
   ve.end = $('evEnd').value ? new Date($('evEnd').value + 'T18:00').getTime() : (ve.closed ? ve.end : null);
   save(); closeSheet(); render();
 }
-function closeVe(id){
+async function closeVe(id){
   const ve = S.ves.find(v => v.id === id); const {n, d} = veProgress(ve);
-  if (d < n && !confirm(`${n - d} coffret${n-d>1?'s':''} sans mesures complètes. Clôturer quand même ?`)) return;
+  if (d < n && !await askConfirm(`${n - d} coffret${n-d>1?'s':''} sans mesures complètes. Clôturer quand même ?`)) return;
   snapshot(); ve.closed = true; ve.end = ve.end || Date.now(); save(); render();
   offerUndo('VE clôturée'); showCarnet(id);
 }
 function reopenVe(id){ const ve = S.ves.find(v => v.id === id); snapshot(); ve.closed = false; save(); render(); offerUndo('VE rouverte'); }
-function deleteVe(id){
-  if (!confirm('Supprimer cette VE et toutes ses mesures ?')) return;
+async function deleteVe(id){
+  if (!await askConfirm('Supprimer cette VE et toutes ses mesures ?')) return;
   const sid = (S.ves.find(v => v.id === id) || {}).siteId;
   snapshot(); S.ves = S.ves.filter(v => v.id !== id); save(); fromSite ? go('site', sid) : go('ves'); offerUndo('VE supprimée');
 }
@@ -552,9 +559,9 @@ function editCoffret(id, isNew){
     <div class="grid2">
       <div><label style="margin-top:0">Sous tension (V)</label><input inputmode="decimal" value="${esc(fmtNum(c.vOn))}" placeholder="ex. 13,6" oninput="setC('vOn', this.value)"></div>
       <div><label style="margin-top:0">Hors tension (V)</label><input inputmode="decimal" value="${esc(fmtNum(c.vOff))}" placeholder="ex. 12,7" oninput="setC('vOff', this.value)"></div>
+      <div><label style="margin-top:0">Bat. fin (V)</label><input inputmode="decimal" value="${esc(fmtNum(c.vFin || ''))}" placeholder="fin de test, ex. 12,4" oninput="setC('vFin', this.value)"></div>
     </div>
-    <label>Bat. fin (V) · facultatif</label>
-    <input inputmode="decimal" value="${esc(fmtNum(c.vFin || ''))}" placeholder="fin de test secteur coupé, ex. 12,4" oninput="setC('vFin', this.value)">
+    <div class="hint">Ces mesures vont directement dans la fiche VCE (Chargeur = sous tension, Bat. début = hors tension, Bat. fin, Consommation). Pour les corriger, c'est toujours ici.</div>
     <label>Consommation</label>
     <div class="row">
       <input class="grow" inputmode="decimal" value="${esc(fmtNum(c.conso))}" placeholder="ex. 450" oninput="setC('conso', this.value)">
@@ -601,16 +608,16 @@ function setCustomCap(id, v){
   setBat(id, 'cap', Math.round(n * 10) / 10);
 }
 function addBat(){ const c = getC(); const last = c.bats[c.bats.length - 1]; c.bats.push({id: uid(), cap: null, pose: '', replaced: false}); save(); refreshBats(); }
-function delBat(id){ const c = getC(); snapshot(); c.bats = c.bats.filter(b => b.id !== id); save(); refreshBats(); offerUndo('Batterie supprimée'); }
+async function delBat(id){ const c = getC(), b = c.bats.find(x => x.id === id); if (!(await askConfirm(`Supprimer la batterie${b && b.cap ? ' ' + fmtCap(b.cap) + ' Ah' : ''} de ce coffret ?`, 'Supprimer'))) return; snapshot(); c.bats = c.bats.filter(b => b.id !== id); save(); refreshBats(); offerUndo('Batterie supprimée'); }
 function replaceBat(id){
   const b = getC().bats.find(x => x.id === id);
   b.oldPose = b.pose; b.pose = thisMonth(); b.replaced = true; save(); refreshBats();
   toast(`🔁 Batterie remplacée : date de pose ${fmtPose(b.pose)}`);
 }
 function undoReplace(id){ const b = getC().bats.find(x => x.id === id); b.pose = b.oldPose || ''; b.replaced = false; delete b.oldPose; save(); refreshBats(); }
-function deleteCoffret(){
+async function deleteCoffret(){
   const ve = S.ves.find(v => v.id === curVe); const c = getC();
-  if (!confirm(`Supprimer le coffret « ${c.label || 'sans nom'} » ?`)) return;
+  if (!await askConfirm(`Supprimer le coffret « ${c.label || 'sans nom'} » ?`)) return;
   snapshot(); ve.coffrets = ve.coffrets.filter(x => x.id !== c.id); save(); closeSheet(); render(); offerUndo('Coffret supprimé');
 }
 
@@ -740,11 +747,11 @@ function buildPdf(ve){
 
   // 1. Mesures
   section('1. Mesures par coffret');
-  if (ve.coffrets.length) table(['#', 'Coffret', 'Type', 'Localisation', 'Sous tension', 'Hors tension', 'Consommation'],
+  if (ve.coffrets.length) table(['#', 'Coffret', 'Type', 'Localisation', 'Sous tension', 'Hors tension', 'Bat. fin', 'Consommation'],
     ve.coffrets.map((c, i) => [i + 1, c.label || 'Coffret ' + (i + 1), typeLabel(c.type), c.loc || '—',
-      num(c.vOn) !== null ? fmtNum(c.vOn) + ' V' : '—', num(c.vOff) !== null ? fmtNum(c.vOff) + ' V' : '—',
+      num(c.vOn) !== null ? fmtNum(c.vOn) + ' V' : '—', num(c.vOff) !== null ? fmtNum(c.vOff) + ' V' : '—', num(c.vFin) !== null ? fmtNum(c.vFin) + ' V' : '—',
       num(c.conso) !== null ? fmtNum(c.conso) + ' ' + c.unit : '—']),
-    {columnStyles: {0: {halign: 'center', cellWidth: 8}, 4: {halign: 'center'}, 5: {halign: 'center'}, 6: {halign: 'center'}}});
+    {columnStyles: {0: {halign: 'center', cellWidth: 8}, 4: {halign: 'center'}, 5: {halign: 'center'}, 6: {halign: 'center'}, 7: {halign: 'center'}}});
   else { doc.setFont('helvetica', 'italic'); doc.setFontSize(10); doc.setTextColor(102, 118, 132); doc.text('Aucun coffret.', M, y); y += 9; }
 
   // 2. Batteries
@@ -1021,15 +1028,44 @@ function secToggle(id, open){ open ? openSec.add(id) : openSec.delete(id); }
 
 // --- Lien avec les coffrets de la partie Batteries ---
 const mA = c => { const n = num(c.conso); return n === null ? '' : fmtNum(Math.round((c.unit === 'A' ? n * 1000 : n) * 100) / 100); };
-function coffretVals(c){ return {loc: [c.label, c.loc].filter(Boolean).join(' – '), ch: fmtNum(num(c.vOn) ?? ''), deb: fmtNum(num(c.vOff) ?? ''), fin: fmtNum(num(c.vFin) ?? ''), conso: mA(c)}; }
+// Batteries d'un coffret en bref : « 2×17Ah 03/22 » (groupées par capacité et date de pose)
+function batInfo(c){
+  const g = {};
+  (c.bats || []).forEach(b => { const k = (b.cap > 0 ? fmtCap(b.cap) : '?') + 'Ah' + (b.pose ? ' ' + b.pose.slice(5, 7) + '/' + b.pose.slice(2, 4) : ''); g[k] = (g[k] || 0) + 1; });
+  return Object.entries(g).map(([k, n]) => (n > 1 ? n + '×' : '') + k).join(' + ');
+}
+function coffretVals(c){ return {loc: [c.label, c.loc].filter(Boolean).join(' – '), bat: batInfo(c), ch: fmtNum(num(c.vOn) ?? ''), deb: fmtNum(num(c.vOff) ?? ''), fin: fmtNum(num(c.vFin) ?? ''), conso: mA(c)}; }
 function rowVals(r, ve){
   const c = r.cid && ve.coffrets.find(x => x.id === r.cid);
   if (!c) return {loc: r.fixed || r.loc || '', ref: r.ref || '', ch: r.ch || '', deb: r.deb || '', fin: r.fin || '', conso: r.conso || '', linked: false};
   const v = coffretVals(c);
   Object.assign(r, {ch: v.ch, deb: v.deb, fin: v.fin, conso: v.conso}); // copie de secours si le coffret est supprimé
-  return Object.assign(v, {loc: r.fixed || v.loc, ref: r.ref || '', linked: true, c});
+  return Object.assign(v, {loc: r.fixed || v.loc, locFull: [r.fixed || v.loc, v.bat].filter(Boolean).join(' · '), ref: r.ref || '', linked: true, c});
+}
+// Les lignes de la fiche suivent les coffrets : coffret supprimé ou passé dans l'autre type → ligne retirée de cette fiche
+// (les lignes pré-imprimées de la VCE 08 sont vidées, pas supprimées)
+function purgeAlims(f, ve, type){
+  const D = VCE[type]; let ch = false;
+  f.alims = f.alims.filter(r => {
+    if (!r.cid) return true;
+    const c = ve.coffrets.find(x => x.id === r.cid);
+    if (c && c.type === D.ctype) return true;
+    ch = true;
+    if (r.fixed) { delete r.cid; ['ch', 'deb', 'fin', 'conso'].forEach(k => delete r[k]); return true; }
+    return false;
+  });
+  const keep = (f.unlinked || []).filter(id => ve.coffrets.some(c => c.id === id && c.type === D.ctype));
+  if (keep.length !== (f.unlinked || []).length) { f.unlinked = keep; ch = true; }
+  return ch;
+}
+function syncFichesAll(){
+  if (typeof FICHES === 'undefined') return;
+  let ch = false;
+  S.ves.forEach(v => { const F = FICHES[v.id]; if (F) ['08', '11'].forEach(t => { if (F[t] && purgeAlims(F[t], v, t)) ch = true; }); });
+  if (ch) saveFiches();
 }
 function linkCoffrets(f, ve, type){
+  if (purgeAlims(f, ve, type)) saveFiches();
   const D = VCE[type], linked = new Set(f.alims.map(r => r.cid).filter(Boolean));
   const todo = ve.coffrets.filter(c => c.type === D.ctype && !linked.has(c.id) && !(f.unlinked || []).includes(c.id));
   if (!todo.length) { sortAlims(f, ve); return false; }
@@ -1051,8 +1087,11 @@ function sortAlims(f, ve){
 }
 function alimSet(id, k, v){ const r = curFiche().alims.find(x => x.id === id); r[k] = v; curFiche().upd = Date.now(); saveFiches(); }
 function alimAdd(){ curFiche().alims.push({id: uid()}); saveFiches(); rerenderFiche(); }
-function alimDel(id){
-  const f = curFiche(), r = f.alims.find(x => x.id === id);
+async function alimDel(id){
+  const f = curFiche(), r = f.alims.find(x => x.id === id); if (!r) return;
+  const v = rowVals(r, S.ves.find(x => x.id === curVe));
+  if (!(await askConfirm(`Retirer la ligne « ${v.loc || 'sans nom'} » du tableau Alimentations ?`, 'Retirer'))) return;
+  snapshot(); undoExtra = {fiches: JSON.stringify(FICHES), sig: mySig()}; setTimeout(() => offerUndo('Ligne retirée'), 0);
   if (r.cid) (f.unlinked = f.unlinked || []).push(r.cid);
   if (r.fixed) { delete r.cid; ['ch', 'deb', 'fin', 'conso', 'ref'].forEach(k => delete r[k]); }
   else f.alims = f.alims.filter(x => x.id !== id);
@@ -1082,7 +1121,12 @@ function lecAdd(dup){
 function lecSet(id, k, v){ const l = curFiche().lecteurs.find(x => x.id === id); l[k] = v; curFiche().upd = Date.now(); saveFiches(); }
 function lecCycle(id, k){ const l = curFiche().lecteurs.find(x => x.id === id); l[k] = l[k] === 'OK' ? 'NOK' : l[k] === 'NOK' ? '' : 'OK'; saveFiches(); rerenderFiche(); }
 function lecAllOk(id){ curFiche().lecteurs.filter(l => !id || l.id === id).forEach(l => ESSAIS.forEach(([k]) => { if (!l[k]) l[k] = 'OK'; })); saveFiches(); rerenderFiche(); }
-function lecDel(id){ if (!confirm('Supprimer ce lecteur ?')) return; const f = curFiche(); f.lecteurs = f.lecteurs.filter(x => x.id !== id); saveFiches(); rerenderFiche(); }
+async function lecDel(id){
+  const f = curFiche(), l = f.lecteurs.find(x => x.id === id); if (!l) return;
+  if (!(await askConfirm(`Supprimer le lecteur ${l.n ? 'n° ' + l.n : ''}${l.loc ? ' (' + l.loc + ')' : ''} ?`, 'Supprimer'))) return;
+  snapshot(); undoExtra = {fiches: JSON.stringify(FICHES), sig: mySig()};
+  f.lecteurs = f.lecteurs.filter(x => x.id !== id); saveFiches(); rerenderFiche(); offerUndo('Lecteur supprimé');
+}
 
 // --- Lignes à cocher (périphériques, transmission…) ---
 function rowsAllOk(item){
@@ -1110,8 +1154,8 @@ function copyPrev(){
   });
   syncShared(); saveFiches(); rerenderFiche(); toast(`Fiche reprise de la VE du ${fmtDay(pv.start)} (sans les mesures ni les essais)`);
 }
-function clearFiche(){
-  if (!confirm(`Effacer toutes les réponses de la ${VCE[curType].short} de cette VE ?`)) return;
+async function clearFiche(){
+  if (!await askConfirm(`Effacer toutes les réponses de la ${VCE[curType].short} de cette VE ?`)) return;
   delete FICHES[curVe][curType]; saveFiches(); rerenderFiche(); toast('Fiche effacée');
 }
 
@@ -1181,6 +1225,7 @@ function alimsHtml(f, ve){
         <div class="row"><div class="grow name" style="font-size:14px">${i + 1}. ${r.fixed ? esc(r.fixed) : v.linked ? esc(v.loc) : ''}${v.linked ? ` <span class="pill info">🔗 ${esc(v.c.label || 'coffret')}</span>` : ''}</div>
           ${v.linked ? `<button class="btn small" onclick="alimUnlink('${r.id}')">Délier</button>` : ''}
           ${!r.fixed || v.linked || r.ch || r.deb || r.fin || r.conso || r.ref ? `<button class="btn small" onclick="alimDel('${r.id}')" aria-label="Retirer">✕</button>` : ''}</div>
+        ${v.linked && v.bat ? `<div class="sub">🔋 ${esc(v.bat)} <span style="opacity:.7">(écrit dans « Localisation » sur la fiche)</span></div>` : ''}
         ${!r.fixed && !v.linked ? `<input placeholder="Localisation" value="${esc(r.loc || '')}" oninput="alimSet('${r.id}','loc',this.value)" style="margin-top:6px">` : ''}
         ${D.hasRef ? `<input placeholder="Référence alimentation" value="${esc(r.ref || '')}" oninput="alimSet('${r.id}','ref',this.value)" style="margin-top:6px">` : ''}
         ${v.linked ? `<div class="meas tap" onclick="editCoffret('${v.c.id}')"><span>Chargeur ${v.ch || '–'} V</span><span>Début ${v.deb || '–'} V</span><span>Fin ${v.fin || '–'} V</span><span>${v.conso || '–'} mA</span><span>✏️</span></div>`
@@ -1191,13 +1236,15 @@ function alimsHtml(f, ve){
     ${(f.unlinked || []).length ? `<button class="btn small block" onclick="relinkAll()">🔗 Relier à nouveau tous les coffrets</button>` : ''}
     ${f.alims.length > D.alimMax ? `<div class="hint">ℹ️ La fiche a ${D.alimMax} lignes : les lignes ${D.alimMax + 1} et suivantes seront ajoutées dans le tableau de la fiche (le reste de la fiche est décalé).</div>` : ''}`;
 }
+const cmpLec = (a, b) => (!String(a.n || '').trim() - !String(b.n || '').trim()) || cmpTxt(String(a.n || ''), String(b.n || ''));
 function lecteursHtml(f){
+  f.lecteurs.sort(cmpLec);
   const L = f.lecteurs;
   return `<div class="sub">Essais : touche une case pour passer de vide → <b>OK</b> → <b>NOK</b> → vide.</div>
     <datalist id="lecTypes">${LEC_TYPES.map(t => `<option value="${t}">`).join('')}</datalist>
     ${L.map(l => `<div class="bat" data-lec="${l.id}">
       <div class="row">
-        <input style="width:64px;padding:8px" placeholder="N°" value="${esc(l.n || '')}" oninput="lecSet('${l.id}','n',this.value)">
+        <input style="width:64px;padding:8px" placeholder="N°" value="${esc(l.n || '')}" oninput="lecSet('${l.id}','n',this.value)" onchange="rerenderFiche()">
         <input class="grow lecLoc" style="padding:8px" placeholder="Localisation" value="${esc(l.loc || '')}" oninput="lecSet('${l.id}','loc',this.value)">
         <button class="btn small" onclick="lecDel('${l.id}')" aria-label="Supprimer">✕</button></div>
       <div class="row" style="margin-top:6px">
@@ -1345,7 +1392,7 @@ async function importTpl(files){
   render();
 }
 async function delTpl(k){
-  if (!confirm(`Retirer la fiche vierge ${VCE[k].short} de ce téléphone ?`)) return;
+  if (!await askConfirm(`Retirer la fiche vierge ${VCE[k].short} de ce téléphone ?`)) return;
   await idbDo('readwrite', st => st.delete(k)); TPL[k] = null; render();
 }
 function tplSettingsHtml(){
@@ -1358,7 +1405,7 @@ function tplSettingsHtml(){
     <div class="sub" style="margin-top:10px">${nF} fiche${nF > 1 ? 's' : ''} remplie${nF > 1 ? 's' : ''} enregistrée${nF > 1 ? 's' : ''} sur ce téléphone.</div>
     ${nF ? `<button class="btn block" style="color:var(--bad)" onclick="clearAllFiches()">🗑 Effacer toutes les fiches remplies</button>` : ''}`;
 }
-function clearAllFiches(){ if (!confirm('Effacer les réponses de toutes les fiches VCE de ce téléphone ?')) return; FICHES = {}; saveFiches(); render(); toast('Fiches effacées'); }
+async function clearAllFiches(){ if (!await askConfirm('Effacer les réponses de toutes les fiches VCE de ce téléphone ?')) return; FICHES = {}; saveFiches(); render(); toast('Fiches effacées'); }
 
 // --- Remplissage de la vraie fiche ---
 const pdfTxt = s => String(s ?? '').replace(/Ω/g, 'Ohm').replace(/[≤]/g, '<=').replace(/[≥]/g, '>=').replace(/[^\n\x20-\x7E\xA0-\xFF€‘’“”–—…œŒ•]/g, '?');
@@ -1385,12 +1432,16 @@ async function buildVce(ve, type){
   const form = doc.getForm(), byName = {};
   form.getFields().forEach(x => { byName[x.getName()] = x; try { if (x instanceof PDFTextField) x.setText(''); else if (x instanceof PDFCheckBox) x.uncheck(); } catch(e){} });
   const setTxt = (x, val, size) => {
+    if (size === 'fit') { const R = x.acroField.getWidgets()[0].getRectangle(), w1 = helv.widthOfTextAtSize(pdfTxt(val), 1) || 1; size = Math.max(3.6, Math.min(7.5, (R.height - 1.5) * .85, (R.width - 4) / w1)); }
     try { const ml = x.isMultiline && x.isMultiline(); x.setText(ml ? pdfTxt(val) : pdfTxt(val).replace(/\s*\n\s*/g, ' · ')); } catch(e){ try { x.setMaxLength(undefined); x.setText(pdfTxt(val)); } catch(e2){} }
     try { x.setFontSize(size || 0); } catch(e){}
   };
   const T = (name, val, size) => { if (!name) return; const x = byName[name]; if (!x) return missing.add(name); if (val === undefined || val === null || val === '') return; setTxt(x, val, size); };
   const C = name => { if (!name) return; const x = byName[name]; if (!x) return missing.add(name); try { x.check(); } catch(e){} };
   const rectOf = name => { const x = byName[name]; return x ? x.acroField.getWidgets()[0].getRectangle() : null; };
+  // Cases « Localisation » pré-imprimées (VCE 08), relevées avant tout décalage
+  const fixedRows = {};
+  if (D.fixedCell) for (let n = 1; n <= D.fixed.length; n++) { const R = rectOf(D.alim(n).ch); if (R) fixedRows[n] = [D.fixedCell[0], R.y + 0.75, D.fixedCell[1] - D.fixedCell[0], R.height - 1.5]; }
   // Cadres de signature (position d'origine sur la fiche), relevés avant tout décalage
   const sigRect = {};
   for (const who of ['client', 'tech']) {
@@ -1418,8 +1469,11 @@ async function buildVce(ve, type){
     }
   };
   D.sections.forEach(s => s.items.forEach(walk));
-  const alimAll = f.alims.map((r, i) => [i + 1, rowVals(r, ve)]), lecAll = f.lecteurs || [];
-  const alimVals = (n, v) => { const F = D.alim(n); return [[F.loc, n > D.fixed.length ? v.loc : null, 7], [F.ref, v.ref, 7], [F.ch, v.ch, 8], [F.deb, v.deb, 8], [F.fin, v.fin, 8], [F.conso, v.conso, 8]]; };
+  const alimAll = f.alims.map((r, i) => [i + 1, rowVals(r, ve)]), lecAll = (f.lecteurs || []).slice().sort(cmpLec);
+  // Une seule taille de texte pour toute la colonne Localisation (la plus grande qui convient à toutes les lignes)
+  const locR = rectOf(D.alim(D.fixed.length + 1).loc);
+  const LOCSZ = !locR ? 7 : Math.max(3.6, Math.min(7, (locR.height - 1.5) * .85, ...alimAll.filter(([n]) => n > D.fixed.length).map(([, v]) => (locR.width - 4) / (helv.widthOfTextAtSize(pdfTxt(v.locFull || v.loc || ''), 1) || 1))));
+  const alimVals = (n, v) => { const F = D.alim(n); return [[F.loc, n > D.fixed.length ? (v.locFull || v.loc) : null, LOCSZ], [F.ref, v.ref, 7], [F.ch, v.ch, 8], [F.deb, v.deb, 8], [F.fin, v.fin, 8], [F.conso, v.conso, 8]]; };
   const lecVals = (n, l) => { const F = D.lec(n); return [[F.n, l.n, 8], [F.loc, l.loc, 8], [F.type, l.type, 8], ...ESSAIS.map(([k]) => [F[k], l[k], 7]), [F.v, l.v, 8]]; };
   alimAll.slice(0, D.alimMax).forEach(([n, v]) => alimVals(n, v).forEach(([nm, val, sz]) => nm && T(nm, val, sz)));
   if (D.lecMax) lecAll.slice(0, D.lecMax).forEach((l, i) => lecVals(i + 1, l).forEach(([nm, val, sz]) => T(nm, val, sz)));
@@ -1435,7 +1489,7 @@ async function buildVce(ve, type){
     const cap = Math.floor((R.height - 3) / LH), step = G.obs.band[1] - G.obs.band[0];
     if (lines.length > cap) nO = Math.ceil((lines.length - cap) * LH / step);
   }
-  const H = 841.92, W = 595.32, page0 = doc.getPage(0);
+  const H = 841.92, W = 595.32, page0 = doc.getPage(0), underlay = [];
   const events = [];
   if (nA) events.push(Object.assign({n: nA, kind: 'alim'}, G.alim));
   if (nL) events.push(Object.assign({n: nL, kind: 'lec'}, G.lec));
@@ -1467,7 +1521,12 @@ async function buildVce(ve, type){
     const w1 = cand.length ? cand[cand.length - 1] : w0 + room;
     wins.push([w0, w1, top]); w0 = w1;
   }
-  if (!events.length) wins.splice(0, wins.length, [0, vEnd, 0]);
+  const footH = G.footer[1] - G.footer[0];
+  // Si la fiche agrandie ne dépasse que d'un peu, tout tient sur UNE page (légèrement réduite à l'impression) :
+  // pas de grand blanc en bas de page 1. Sinon, découpage en pages A4.
+  const fitOne = !events.length; // la fiche garde toujours son format A4 d'origine
+  if (fitOne) wins.splice(0, wins.length, [0, vEnd, 0]);
+  const PH = events.length && fitOne ? vEnd + footH : H, footT = events.length && fitOne ? vEnd : G.footer[0];
   const total = wins.length;
   const winOf = v => { for (let k = 0; k < wins.length; k++) if (v < wins[k][1] || k === wins.length - 1) return k; return wins.length - 1; };
   const pageY = (k, v) => v - wins[k][0] + wins[k][2];
@@ -1475,15 +1534,16 @@ async function buildVce(ve, type){
   if (events.length) {
     const {pushGraphicsState, popGraphicsState, rectangle, clip, endPath} = PDFLib;
     const emb = await doc.embedPage(page0);
-    pages = wins.map(() => doc.addPage([W, H]));
+    pages = wins.map(() => doc.addPage([W, PH]));
+    if (PH > H) { const PW = PH * W / H, pad = (PW - W) / 2; pages.forEach(pg => { pg.setMediaBox(-pad, 0, PW, PH); pg.setCropBox(-pad, 0, PW, PH); }); } // format A4 (proportions) : s'imprime sur une feuille A4
     const blit = (pg, a, b, x0, x1, t) => { // copie la zone [a,b]×[x0,x1] de la fiche d'origine en haut t de la page
-      pg.pushOperators(pushGraphicsState(), rectangle(x0, H - t - (b - a), x1 - x0, b - a), clip(), endPath());
-      pg.drawPage(emb, {x: 0, y: a - t}); pg.pushOperators(popGraphicsState());
+      pg.pushOperators(pushGraphicsState(), rectangle(x0, PH - t - (b - a), x1 - x0, b - a), clip(), endPath());
+      pg.drawPage(emb, {x: 0, y: PH - H + a - t}); pg.pushOperators(popGraphicsState());
     };
     wins.forEach(([v0w, v1w], k) => {
       const pg = pages[k];
       if (k) blit(pg, G.header[0], G.header[1], 0, W, 0);
-      blit(pg, G.footer[0], G.footer[1], 0, W, G.footer[0]);
+      blit(pg, G.footer[0], G.footer[1], 0, W, footT);
       if (total > 1 && k < total - 1) pg.drawText(`Page ${k + 1} / ${total}`, {x: W - 95, y: 10, size: 8, font: helv, color: rgb(.3, .3, .3)});
       [...pieces, ...copies].forEach(p => {
         const u0 = Math.max(p.v0, v0w), u1 = Math.min(p.v0 + p.b - p.a, v1w); if (u1 - u0 <= 0.01) return;
@@ -1493,9 +1553,9 @@ async function buildVce(ve, type){
     // Numéros des lignes ajoutées (Alimentations)
     copies.filter(c => c.e.kind === 'alim' && c.e.num).forEach(c => {
       const k = winOf(c.v0 + 1), pg = pages[k], t = pageY(k, c.v0), st = c.b - c.a, [n0, n1] = c.e.num;
-      pg.drawRectangle({x: n0, y: H - t - st + 0.7, width: n1 - n0, height: st - 1.3, color: rgb(1, 1, 1)});
+      pg.drawRectangle({x: n0, y: PH - t - st + 0.7, width: n1 - n0, height: st - 1.3, color: rgb(1, 1, 1)});
       const txt = String(D.alimMax + c.i + 1), tw = helv.widthOfTextAtSize(txt, c.e.numSize);
-      pg.drawText(txt, {x: (n0 + n1 - tw) / 2, y: H - t - st + (st - c.e.numSize * .72) / 2, size: c.e.numSize, font: helv, color: rgb(0, 0, 0)});
+      pg.drawText(txt, {x: (n0 + n1 - tw) / 2, y: PH - t - st + (st - c.e.numSize * .72) / 2, size: c.e.numSize, font: helv, color: rgb(0, 0, 0)});
     });
     // Nouvelles cases pour les lignes ajoutées (restent modifiables dans la version modifiable)
     const addRow = (tplNames, vals, e, i) => {
@@ -1507,7 +1567,8 @@ async function buildVce(ve, type){
         const mk = tw.getAppearanceCharacteristics(), bgc = mk && mk.getBackgroundColor();
         const bg = !bgc ? undefined : bgc.length === 1 ? grayscale(bgc[0]) : bgc.length === 3 ? rgb(bgc[0], bgc[1], bgc[2]) : undefined;
         const tf = form.createTextField(`plus_${e.kind}_${i + 1}_${j}`);
-        tf.addToPage(pages[k], {x: R.x, y: H - t - R.height, width: R.width, height: R.height, backgroundColor: bg, borderWidth: 0, font: helv});
+        tf.addToPage(pages[k], {x: R.x, y: PH - t - R.height, width: R.width, height: R.height, borderWidth: 0, backgroundColor: bg || grayscale(.83), font: helv});
+        try { tf.acroField.getWidgets()[0].getAppearanceCharacteristics().dict.delete(PDFLib.PDFName.of('BC')); } catch(er){} // pas de cadre noir autour
         try { tf.setAlignment(tpl.getAlignment()); } catch(er){}
         const [, val, sz] = vals[j]; if (val !== undefined && val !== null && val !== '') setTxt(tf, val, sz);
       });
@@ -1516,23 +1577,31 @@ async function buildVce(ve, type){
     if (eA) alimAll.slice(D.alimMax).forEach(([n, v], i) => { const vals = alimVals(n, v), tpl = alimVals(D.alimMax, v).map(x => x[0]); addRow(tpl, vals, eA, i); });
     if (eL) lecAll.slice(D.lecMax).forEach((l, i) => { const vals = lecVals(D.lecMax + i + 1, l), tpl = lecVals(D.lecMax, l).map(x => x[0]); addRow(tpl, vals, eL, i); });
     // Les cases de la fiche suivent leur zone
-    const mapTop = (top, cx) => { // position d'origine (depuis le haut) → [page, haut sur la page]
-      const p = pieces.find(p => cx >= p.x0 && cx <= p.x1 && top >= p.a - 0.01 && top < p.b) || pieces[pieces.length - 1];
-      const v = p.v0 + top - p.a, k = winOf(v); return [k, pageY(k, v)];
+    const mapTop = (top, cx) => { // position d'origine (haut de la case, depuis le haut) → [page, haut sur la page]
+      const q = top + 0.5, p = pieces.find(p => cx >= p.x0 && cx <= p.x1 && q >= p.a - 0.01 && q < p.b) || pieces[pieces.length - 1];
+      const v = p.v0 + top - p.a, k = winOf(v + 0.5); return [k, pageY(k, v)];
     };
     const annots = page0.node.Annots();
     if (annots) for (let i = 0; i < annots.size(); i++) {
       const ref = annots.get(i), dict = doc.context.lookup(ref);
       if (!dict || !dict.get || String(dict.get(PDFLib.PDFName.of('Subtype'))) !== '/Widget') continue;
       const wdg = PDFLib.PDFWidgetAnnotation.fromDict(dict), R = wdg.getRectangle(), top = H - R.y - R.height;
-      const [k, t] = mapTop(top + 0.5, R.x + R.width / 2);
+      const [k, t] = mapTop(top, R.x + R.width / 2);
       let h = R.height; if (nO && Math.abs(top - (H - rectOf(obsName).y - rectOf(obsName).height)) < 0.6 && Math.abs(R.x - rectOf(obsName).x) < 0.6) h += nO * (G.obs.band[1] - G.obs.band[0]);
-      wdg.setRectangle({x: R.x, y: H - t - h, width: R.width, height: h});
+      wdg.setRectangle({x: R.x, y: PH - t - h, width: R.width, height: h});
       wdg.setP(pages[k].ref); pages[k].node.addAnnot(ref);
     }
     // Signatures
-    var sigPos = (rectPdf) => { const [x, y, w, h] = rectPdf, [k, t] = mapTop(H - y - h + 0.5, x + w / 2); return [pages[k], [x, H - t - h, w, h]]; };
+    var sigPos = (rectPdf) => { const [x, y, w, h] = rectPdf, [k, t] = mapTop(H - y - h, x + w / 2); return [pages[k], [x, PH - t - h, w, h]]; };
   } else var sigPos = rectPdf => [page0, rectPdf];
+  if (D.fixedCell) alimAll.slice(0, D.fixed.length).forEach(([n, v]) => {
+    if (!v.linked || !v.bat) return;
+    const R0 = fixedRows[n]; if (!R0) return;
+    const [pg, [x, y, w, h]] = sigPos(R0), txt = pdfTxt(v.locFull), w1 = helv.widthOfTextAtSize(txt, 1) || 1;
+    const sz = Math.max(3.6, Math.min(8, (w - 4) / w1, h * .8));
+    pg.drawRectangle({x, y, width: w, height: h, color: rgb(1, 1, 1)});
+    pg.drawText(txt, {x: x + (w - w1 * sz) / 2, y: y + (h - sz * .72) / 2, size: sz, font: helv, color: rgb(0, 0, 0)});
+  });
   for (const who of ['client', 'tech']) {
     const src = f.v['sig_' + who]; if (!src || !sigRect[who]) continue;
     const [pg, [rx, ry, rw, rh]] = sigPos(sigRect[who]), img = await doc.embedPng(src);
@@ -1541,6 +1610,26 @@ async function buildVce(ve, type){
   }
   T(D.page[0], String(total), 9); T(D.page[1], String(total), 9);
   if (events.length) doc.removePage(0);
+  // Les cases grises : le gris est peint SOUS le dessin de la fiche (au lieu d'être par-dessus), pour que
+  // les lignes du quadrillage restent visibles même quand les tableaux sont bien remplis
+  const findPage = w => { const pr = w.P(); return doc.getPages().find(pg => pg.ref === pr) || doc.getPage(0); };
+  form.getFields().forEach(x => {
+    if (!(x instanceof PDFTextField)) return;
+    x.acroField.getWidgets().forEach(w => {
+      const mk = w.getAppearanceCharacteristics(), bgc = mk && mk.getBackgroundColor(); if (!bgc) return;
+      const col = bgc.length === 1 ? grayscale(bgc[0]) : bgc.length === 3 ? rgb(bgc[0], bgc[1], bgc[2]) : null;
+      mk.dict.delete(PDFLib.PDFName.of('BG')); mk.dict.delete(PDFLib.PDFName.of('BC')); // ni fond par-dessus, ni petit cadre en double
+      try { const bs = w.getBorderStyle(); if (bs) bs.dict.set(PDFLib.PDFName.of('W'), PDFLib.PDFNumber.of(0)); } catch(e){}
+      if (col) { const R = w.getRectangle(); underlay.push([findPage(w), {x: R.x, y: R.y, width: R.width, height: R.height, color: col}]); }
+    });
+  });
+  const byPage = new Map(); underlay.forEach(([pg, r]) => { if (!byPage.has(pg)) byPage.set(pg, []); byPage.get(pg).push(r); });
+  for (const [pg, rects] of byPage) {
+    const ops = rects.flatMap(r => PDFLib.drawRectangle({x: r.x, y: r.y, width: r.width, height: r.height, borderWidth: 0, color: r.color, rotate: PDFLib.degrees(0), xSkew: PDFLib.degrees(0), ySkew: PDFLib.degrees(0)}));
+    const ref = doc.context.register(doc.context.contentStream([PDFLib.pushGraphicsState(), ...ops, PDFLib.popGraphicsState()]));
+    pg.node.normalize(); const arr = pg.node.Contents(); // le gris passe en tout premier, sous le reste
+    if (arr instanceof PDFLib.PDFArray) arr.insert(0, ref); else pg.node.set(PDFLib.PDFName.of('Contents'), doc.context.obj([ref, arr]));
+  }
   form.getFields().forEach(x => { if (x instanceof PDFCheckBox) try { x.updateAppearances(tickProvider); } catch(e){} });
   form.updateFieldAppearances(helv);
   doc.setTitle(`${D.short} ${siteName(ve.siteId)}`); doc.setProducer('Batteries VE (local)'); doc.setCreator('Batteries VE');
@@ -1548,6 +1637,7 @@ async function buildVce(ve, type){
   // Version non modifiable : on repart de la version modifiable enregistrée, puis on fige les cases
   const flat = await PDFDocument.load(editable[0]);
   flat.getForm().flatten({updateFieldAppearances: false});
+  flat.getPages().forEach(pg => pg.node.delete(PDFLib.PDFName.of('Annots'))); // plus aucune case : on retire les renvois vers les cases supprimées
   const clean = await PDFDocument.create(); // recopie dans un document neuf : fichier propre et plus léger
   (await clean.copyPages(flat, flat.getPageIndices())).forEach(pg => clean.addPage(pg));
   clean.setTitle(`${D.short} ${siteName(ve.siteId)}`); clean.setProducer('Batteries VE (local)'); clean.setCreator('Batteries VE');
@@ -1731,7 +1821,7 @@ function saveMail(){
   S.settings.mailTo = $('mTo').value.trim(); S.settings.mailSubject = $('mSub').value.trim() || MAIL_SUBJECT; S.settings.mailBody = $('mBody').value.trim() || MAIL_BODY;
   save(); toast('Mail enregistré');
 }
-function resetMail(){ if (!confirm('Remettre l\'objet et le message d\'origine ?')) return; S.settings.mailSubject = MAIL_SUBJECT; S.settings.mailBody = MAIL_BODY; save(); render(); toast('Texte d\'origine remis'); }
+async function resetMail(){ if (!await askConfirm('Remettre l\'objet et le message d\'origine ?')) return; S.settings.mailSubject = MAIL_SUBJECT; S.settings.mailBody = MAIL_BODY; save(); render(); toast('Texte d\'origine remis'); }
 function saveSettings(){
   S.settings.ageYears = Math.max(1, parseInt($('sAge').value, 10) || 4);
   S.settings.warnMonths = Math.max(0, parseInt($('sWarn').value, 10) || 0);
@@ -1820,7 +1910,7 @@ async function loadBackup(file){
   openSheet(`<h3>📥 Déjà à jour</h3>
     <div class="sub">Les données de ce téléphone sont aussi récentes (ou plus) que cette sauvegarde${updated ? ` du ${fmtDay(updated)} à ${hm(updated)}` : ''}. Rien n'a été changé.</div>
     <button class="btn block" onclick="closeSheet()">OK</button>
-    <button class="btn block" style="color:var(--bad)" onclick="if(confirm('Remplacer les données du téléphone par cette sauvegarde plus ancienne ?')) window._bkApply()">Remplacer quand même</button>`);
+    <button class="btn block" style="color:var(--bad)" onclick="(async () => { if (await askConfirm('Remplacer les données du téléphone par cette sauvegarde plus ancienne ?', 'Remplacer')) window._bkApply(); })()">Remplacer quand même</button>`);
 }
 // Sauvegarde .json envoyée via le menu « Partager » du téléphone : OneDrive (pro ou perso), Drive, Fichiers…
 async function shareBackup(){
@@ -1841,16 +1931,16 @@ function exportData(){ S.lastBackup = Date.now(); save(); render(); download(`ba
 function importData(file){
   if (!file) return;
   const r = new FileReader();
-  r.onload = () => {
+  r.onload = async () => {
     try { const d = JSON.parse(r.result); if (!Array.isArray(d.ves)) throw 0;
-      if (!confirm(`Remplacer les données actuelles par cette sauvegarde (${d.ves.length} VE) ?`)) return;
+      if (!await askConfirm(`Remplacer les données actuelles par cette sauvegarde (${d.ves.length} VE) ?`)) return;
       snapshot(); S = Object.assign(defaults(), d, {settings: Object.assign(defaults().settings, d.settings || {})}); save(); render(); offerUndo('Sauvegarde importée'); }
     catch(e){ toast('Fichier de sauvegarde invalide'); }
   };
   r.readAsText(file);
 }
-function resetAll(){
-  if (!confirm('Effacer toutes les VE, sites et batteries de ce téléphone ?')) return;
+async function resetAll(){
+  if (!await askConfirm('Effacer toutes les VE, sites et batteries de ce téléphone ?')) return;
   snapshot(); const keep = S.settings.odClientId; S = defaults(); S.settings.odClientId = keep; save(); render(); offerUndo('Données effacées');
 }
 
@@ -1863,9 +1953,9 @@ function buildXlsx(){
     {name: 'Batteries', headers: ['Site', 'Coffret', 'Localisation', 'Type', 'Capacité (Ah)', 'Date de pose', 'Âge', 'Statut'],
      rows: bats.map(x => [x.site.name, x.c.label, x.c.loc, typeLabel(x.c.type), x.b.cap, fmtPose(x.b.pose), x.b.pose ? ageText(x.mo) : '', {bad:'À remplacer', warn:'À prévoir', ok:'OK', unknown:'Date inconnue'}[x.st]]),
      red: bats.map(x => x.st === 'bad'), center: [4, 5, 6, 7], widths: [28, 26, 26, 16, 12, 12, 14, 14]},
-    {name: 'Mesures', headers: ['Début VE', 'Fin VE', 'Site', 'Coffret', 'Type', 'Sous tension (V)', 'Hors tension (V)', 'Conso', 'Unité', 'Batteries', 'Remarque'],
-     rows: mes.map(({ve, c}) => [fmtDay(ve.start), fmtDay(ve.end), siteName(ve.siteId), c.label, typeLabel(c.type), num(c.vOn) ?? '', num(c.vOff) ?? '', num(c.conso) ?? '', c.unit, c.bats.map(b => `${fmtCap(b.cap)}Ah ${fmtPose(b.pose)}${b.replaced ? ' (remplacée)' : ''}`).join(' + '), c.note || '']),
-     center: [0, 1, 5, 6, 7, 8], widths: [12, 12, 26, 26, 16, 15, 15, 10, 7, 34, 34]},
+    {name: 'Mesures', headers: ['Début VE', 'Fin VE', 'Site', 'Coffret', 'Type', 'Sous tension (V)', 'Hors tension (V)', 'Bat. fin (V)', 'Conso', 'Unité', 'Batteries', 'Remarque'],
+     rows: mes.map(({ve, c}) => [fmtDay(ve.start), fmtDay(ve.end), siteName(ve.siteId), c.label, typeLabel(c.type), num(c.vOn) ?? '', num(c.vOff) ?? '', num(c.vFin) ?? '', num(c.conso) ?? '', c.unit, c.bats.map(b => `${fmtCap(b.cap)}Ah ${fmtPose(b.pose)}${b.replaced ? ' (remplacée)' : ''}`).join(' + '), c.note || '']),
+     center: [0, 1, 5, 6, 7, 8, 9], widths: [12, 12, 26, 26, 16, 15, 15, 12, 10, 7, 34, 34]},
     {name: 'Carnet', headers: ['Site', 'Début', 'Fin', 'Statut', 'Coffrets', 'Texte du carnet'],
      rows: S.ves.slice().sort((a,b) => b.start - a.start).map(ve => [siteName(ve.siteId), fmtDay(ve.start), fmtDay(ve.end), ve.closed ? 'Clôturée' : 'En cours', ve.coffrets.length, ve.carnetEdited && ve.carnet ? ve.carnet : carnetAuto(ve)]),
      center: [1, 2, 3, 4], widths: [26, 12, 12, 11, 9, 100]}
@@ -1889,6 +1979,18 @@ function offerUndo(msg){
   clearTimeout(undoTimer); undoTimer = setTimeout(hideUndo, 15000);
 }
 let undoExtra = null;
+// Fenêtre de confirmation de l'appli (la fenêtre du navigateur ne s'affiche pas toujours quand l'appli est installée)
+function askConfirm(msg, okLabel){
+  return new Promise(res => {
+    const el = document.createElement('div'); el.className = 'cfm';
+    const danger = /suppr|effac|retir|remplac|déconnect|clôtur/i.test(msg + (okLabel || ''));
+    el.innerHTML = `<div class="cfmbox" role="dialog" aria-modal="true"><div class="cfmmsg">${esc(msg)}</div>
+      <div class="cfmbtns"><button class="btn" data-r="0">Annuler</button><button class="btn ${danger ? 'danger' : 'primary'}" data-r="1">${esc(okLabel || 'Confirmer')}</button></div></div>`;
+    const done = v => { el.remove(); res(v); };
+    el.onclick = e => { const b = e.target.closest('button'); if (b) done(b.dataset.r === '1'); else if (e.target === el) done(false); };
+    document.body.appendChild(el);
+  });
+}
 function hideUndo(){ undoSnap = null; undoExtra = null; clearTimeout(undoTimer); $('undoBar').classList.remove('show'); document.body.classList.remove('undo-on'); }
 function undo(){
   if (!undoSnap) return;
@@ -1941,7 +2043,7 @@ function odErrText(e){
 }
 function odLogin(){ if (!OD.app) return toast('Enregistre d\'abord l\'identifiant'); OD.app.loginRedirect({scopes: OD_SCOPES, prompt: 'select_account'}).catch(e => odSet('err', odErrText(e))); }
 async function odLogout(){
-  if (!confirm('Déconnecter OneDrive ? Les fichiers déjà envoyés restent sur ton OneDrive.')) return;
+  if (!await askConfirm('Déconnecter OneDrive ? Les fichiers déjà envoyés restent sur ton OneDrive.')) return;
   try { if (OD.app && OD.account) await OD.app.clearCache({account: OD.account}); } catch(e){}
   OD.account = null; odMeta = {auto: odMeta.auto}; odSaveMeta(); odSet('off'); render();
 }
@@ -2036,7 +2138,7 @@ async function odBackupRestore(i){
     let url = x['@microsoft.graph.downloadUrl'];
     const d = url ? await (await fetch(url)).json() : await (await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${x.id}/content`, auth)).json();
     if (!Array.isArray(d.ves)) throw new Error('fichier de sauvegarde invalide');
-    if (!confirm(`Remplacer les données de l'appli par cette sauvegarde (${d.ves.length} VE, ${(d.sites || []).length} sites) ?`)) return;
+    if (!await askConfirm(`Remplacer les données de l'appli par cette sauvegarde (${d.ves.length} VE, ${(d.sites || []).length} sites) ?`)) return;
     snapshot(); delete d.exportedAt;
     S = Object.assign(defaults(), d, {settings: Object.assign(defaults().settings, d.settings || {}, {odClientId: odClientId() || (d.settings || {}).odClientId})});
     save(); closeSheet(); render(); offerUndo('📂 Sauvegarde restaurée');
