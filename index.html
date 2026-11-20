@@ -199,7 +199,7 @@ details.sec[open]{padding-bottom:12px}
 <script src="jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ============ Version ============ */
-const APP_VERSION = '4.0';
+const APP_VERSION = '4.1';
 const APP_DATE = '19/11/2026';
 
 /* ============ Données ============ */
@@ -474,7 +474,7 @@ function createVe(){
   const start = $('nvDate').value ? new Date($('nvDate').value + 'T08:00').getTime() : Date.now();
   // Reprise de la dernière VE du site
   const prev = S.ves.filter(v => v.siteId === site.id).sort((a,b) => b.start - a.start)[0];
-  const coffrets = prev ? prev.coffrets.map(c => ({id: uid(), label: c.label, loc: c.loc, type: c.type, volt: c.volt,
+  const coffrets = prev ? prev.coffrets.map(c => ({id: uid(), label: c.label, loc: c.loc, type: c.type,
     bats: c.bats.map(b => ({id: uid(), cap: b.cap, pose: b.pose, replaced: false})), vOn: '', vOff: '', vFin: '', conso: '', unit: c.unit || 'mA', note: ''})) : [];
   const ve = {id: uid(), siteId: site.id, start, end: null, closed: false, coffrets, carnet: '', carnetEdited: false};
   S.ves.push(ve); save(); closeSheet(); veMode = 'bat'; go('ve', ve.id);
@@ -1934,15 +1934,18 @@ function saveCalcSettings(){
 // --- Onglet 🧮 Calculs : autonomie théorique des coffrets (aide pour le technicien, n'alimente aucune fiche) ---
 const CALC_CAPS = [7, 12, 17, 18, 24, 26, 36, 40, 65];
 function calcCoffret(c, target){
-  const V = [12, 24].includes(+c.volt) ? +c.volt : 12, per = V / 12, bats = c.bats || [], n = bats.length, coef = S.settings.calcCoef ?? 0.8;
-  const r = {V, per, n, target, coef, notes: [], miss: []};
+  // Tension du coffret déduite de la mesure « Sous tension » (chargeur) : ~13,8 V → 12 V, ~27,6 V → 24 V. Pas de mesure → pas de calcul.
+  const vOn = num(c.vOn), V = vOn === null ? null : vOn >= 10 && vOn <= 18 ? 12 : vOn >= 20 && vOn <= 30 ? 24 : 0;
+  const per = V ? V / 12 : 1, bats = c.bats || [], n = bats.length, coef = S.settings.calcCoef ?? 0.8;
+  const r = {V, vOn, per, n, target, coef, notes: [], miss: []};
+  if (V === null) r.miss.push('sous tension');
   const caps = bats.map(b => +b.cap > 0 ? +b.cap : null);
   if (!n) r.miss.push('batteries'); else if (caps.some(x => x === null)) r.miss.push('capacité d\'une batterie');
   const cn = num(c.conso); if (cn === null) r.miss.push('consommation');
+  if (V === 0) { r.state = 'na'; r.abn = true; return r; }
   if (n && n % per) r.notes.push(`⚠️ ${n} batterie${n > 1 ? 's' : ''} pour un coffret ${V} V : il en faut un multiple de ${per} (${per} en série). Vérifier le câblage.`);
   if (caps.filter(x => x).length > 1 && new Set(caps.filter(x => x)).size > 1) r.notes.push('⚠️ Batteries de capacités différentes : le calcul suppose qu\'elles se partagent la charge.');
   if (bats.some(b => !b.replaced && batStatus(b) === 'bad')) r.notes.push(`⚠️ Batterie de plus de ${S.settings.ageYears} ans : l'autonomie réelle est sans doute plus faible.`);
-  if (V > 12) r.notes.push(`Coffret ${V} V : batteries 12 V par ${per} en série, la capacité ne s'additionne que d'une série à l'autre.`);
   if (r.miss.length) { r.state = 'na'; return r; }
   r.strings = Math.max(1, Math.floor(n / per)); const used = caps.slice().sort((a, b) => b - a).slice(0, r.strings * per); // une batterie en trop (hors série complète) ne compte pas
   r.capT = used.reduce((a, b) => a + b, 0) / per; r.capU = r.capT * coef;
@@ -1956,23 +1959,30 @@ function calcCoffret(c, target){
 }
 const fmtH = h => !isFinite(h) ? '∞' : h >= 100 ? String(Math.round(h)) : fmtNum(Math.round(h * 10) / 10);
 const fmtAh = x => fmtNum(Math.round(x * 100) / 100);
+const calcOpen = new Set();
 function calcCard(c, ve, target){
-  const r = calcCoffret(c, target), icon = {ok: '✅', warn: '🟠', bad: '❌', na: '❔'}[r.state];
-  const capTxt = r.n ? (r.per > 1 ? `${r.n} × 12 V en ${r.strings} série${r.strings > 1 ? 's' : ''} de ${r.per}` : `${r.n} batterie${r.n > 1 ? 's' : ''} 12 V en parallèle`) : 'aucune batterie';
-  return `<div class="card calc ${r.state}">
-    <div class="row"><div class="grow tap" onclick="editCoffret('${c.id}')"><div class="name">${typeIcon(c.type)} ${esc(c.label || 'Coffret')} ›</div>${c.loc ? `<div class="sub">${esc(c.loc)}</div>` : ''}</div>
-      <div style="text-align:right">${r.state === 'na' ? '<div class="sub">à compléter</div>' : `<div class="big">${icon} ${fmtH(r.h)} h</div><div class="sub">pour ${target} h demandées</div>`}</div></div>
-    <div class="chips" style="margin:6px 0">${[12, 24].map(v => `<button class="chip ${r.V === v ? 'on' : ''}" onclick="setVolt('${c.id}', ${v})">Coffret ${v} V</button>`).join('')}</div>
+  const r = calcCoffret(c, target), icon = {ok: '✅', warn: '🟠', bad: '❌', na: '❔'}[r.state], open = calcOpen.has(c.id);
+  const head = r.state === 'na' ? (r.abn ? 'tension anormale' : 'à compléter') : `${fmtH(r.h)} h / ${target} h`;
+  const vTxt = r.V ? `${r.V} V détecté (sous tension ${fmtNum(r.vOn)} V)` : r.abn ? `anormale (sous tension ${fmtNum(r.vOn)} V) : vérifier la mesure` : '';
+  const capTxt = !r.n ? 'aucune batterie' : r.per > 1 ? `${r.n} × 12 V en ${r.strings || Math.floor(r.n / r.per) || 0} série${(r.strings || 0) > 1 ? 's' : ''} de ${r.per}` : `${r.n} batterie${r.n > 1 ? 's' : ''} 12 V en parallèle`;
+  return `<div class="card calc ${r.state}" id="cc_${c.id}">
+    <div class="row tap" onclick="toggleCalc('${c.id}')"><div class="grow"><div class="name">${icon} ${esc(c.label || 'Coffret')}</div>${c.loc && open ? `<div class="sub">${esc(c.loc)}</div>` : ''}</div>
+      <b style="white-space:nowrap">${head}</b><div style="font-size:22px;color:var(--muted);width:22px;text-align:center">${open ? '⌄' : '›'}</div></div>
+    ${!open ? '' : `<div style="margin-top:6px">
+    ${vTxt ? `<div class="kv"><span>Tension</span><b>${esc(vTxt)}</b></div>` : ''}
     <div class="kv"><span>Batteries</span><b>${capTxt}${r.n ? ' · ' + esc(batInfo(c)) : ''}</b></div>
-    ${r.state === 'na' ? `<div class="sub" style="color:var(--warn);font-weight:600;margin-top:4px">Manque : ${r.miss.join(', ')} → touche le nom du coffret pour compléter.</div>` : `
+    ${r.state === 'na' ? (r.miss.length ? `<div class="sub" style="color:var(--warn);font-weight:600;margin-top:4px">Manque : ${r.miss.join(', ')}</div>` : '') : `
     <div class="kv"><span>Capacité</span><b>${fmtAh(r.capT)} Ah × ${fmtNum(r.coef)} = ${fmtAh(r.capU)} Ah utiles</b></div>
     <div class="kv"><span>Consommation hors tension</span><b>${fmtNum(Math.round(r.mA * 10) / 10)} mA</b></div>
+    <div class="kv"><span>Autonomie calculée</span><b>${fmtH(r.h)} h pour ${target} h demandées</b></div>
     <div class="kv"><span>Consommation max pour ${target} h</span><b>${fmtNum(Math.round(r.maxmA))} mA</b></div>
-    <div class="kv"><span>Batterie conseillée</span><b>${r.A <= 0 ? '—' : r.needBat ? `${fmtNum(r.needBat)} Ah${r.strings * r.per > 1 ? ' × ' + r.strings * r.per : ''}${(r.bats = c.bats.map(b => +b.cap)).every(x => x >= r.needBat) ? ' ✓ en place' : ''}` : `plus de ${CALC_CAPS[CALC_CAPS.length - 1]} Ah par batterie : ajouter des batteries`}</b></div>`}
+    <div class="kv"><span>Batterie conseillée</span><b>${r.A <= 0 ? '—' : r.needBat ? `${fmtNum(r.needBat)} Ah${r.strings * r.per > 1 ? ' × ' + r.strings * r.per : ''}${c.bats.every(b => +b.cap >= r.needBat) ? ' ✓ en place' : ''}` : `plus de ${CALC_CAPS[CALC_CAPS.length - 1]} Ah par batterie : ajouter des batteries`}</b></div>`}
     ${r.notes.map(t => `<div class="sub" style="margin-top:4px">${esc(t)}</div>`).join('')}
+    <button class="btn block" style="margin-top:8px" onclick="editCoffret('${c.id}')">✏️ Ouvrir le coffret</button></div>`}
   </div>`;
 }
-function setVolt(id, v){ const ve = S.ves.find(x => x.id === curVe), c = ve && ve.coffrets.find(x => x.id === id); if (!c) return; c.volt = v; save(); render(); }
+function toggleCalc(id){ if (calcOpen.has(id)) calcOpen.delete(id); else calcOpen.add(id); render(); }
+function calcGo(id){ calcOpen.add(id); render(); setTimeout(() => { const el = $('cc_' + id); if (el) el.scrollIntoView({behavior: 'smooth', block: 'start'}); }, 30); }
 function setCaH(siteId, h){ const st = S.sites.find(x => x.id === siteId); if (!st) return; st.caH = h; save(); render(); }
 function calcTabHtml(ve){
   const st = S.sites.find(x => x.id === ve.siteId) || {}, tI = +S.settings.calcIntru || 36, tC = st.caH === 24 ? 24 : 12;
@@ -1983,12 +1993,17 @@ function calcTabHtml(ve){
       <div class="sub" style="margin:0 2px 8px">${[nb ? `❌ <b>${nb}</b> ne tien${nb > 1 ? 'nent' : 't'} pas ${target} h` : '', nw ? `🟠 <b>${nw}</b> juste${nw > 1 ? 's' : ''} (moins de 20 % de marge)` : '', nn ? `❔ <b>${nn}</b> à compléter` : ''].filter(Boolean).join(' · ') || `✅ Tous les coffrets tiennent ${target} h`}</div>
       ${cs.map(c => calcCard(c, ve, target)).join('')}`;
   };
+  const all = ve.coffrets.filter(c => c.type === 'alarme' || c.type === 'ca').map(c => ({c, r: calcCoffret(c, c.type === 'ca' ? tC : tI)}));
+  const grp = st => all.filter(x => x.r.state === st), lnk = (x, full) => `<span class="pill ${{ok: 'ok', warn: 'warn', bad: 'bad', na: 'info'}[x.r.state]} tap" onclick="calcGo('${x.c.id}')">${typeIcon(x.c.type)} ${esc(x.c.label || 'Coffret')}${full ? ' · ' + fmtH(x.r.h) + ' h / ' + x.r.target + ' h' : ''}</span>`;
+  const recap = !all.length ? '' : `<div class="card"><div class="name">Récap · ${all.length} coffret${all.length > 1 ? 's' : ''}</div>
+    ${[['bad', '❌ Ne tiennent pas', 1], ['warn', '🟠 Justes (marge < 20 %)', 1], ['na', '❔ À compléter', 0], ['ok', '✅ Respectent', 0]].map(([k, t, full]) => { const g = grp(k); return g.length ? `<div class="sub" style="margin-top:6px;font-weight:700">${t} (${g.length})</div><div>${g.map(x => lnk(x, full)).join('')}</div>` : ''; }).join('')}
+    <div class="hint" style="margin-top:6px">Touche un coffret pour aller à son détail.</div></div>`;
   const caChoice = `<div class="card"><div class="sub">Autonomie demandée pour ce site</div><div class="chips" style="margin-top:6px">
     <button class="chip ${tC === 12 ? 'on' : ''}" onclick="setCaH('${ve.siteId}', 12)">12 h · grade 1-2</button><button class="chip ${tC === 24 ? 'on' : ''}" onclick="setCaH('${ve.siteId}', 24)">24 h · grade 3-4</button></div>
     <div class="hint">Gardé pour les prochaines VE de ce site.</div></div>`;
   const body = part('alarme', '🚨 Intrusion', tI) + part('ca', '🚪 Contrôle d\'accès', tC, caChoice);
-  return `<div class="hint" style="margin:0 2px 10px">🧮 Autonomie théorique = capacité utile ÷ consommation. Aide pour toi uniquement : rien n'est reporté sur les fiches VCE, le rapport ou l'Excel. Les mesures se corrigent dans le coffret (touche son nom).</div>
-    ${body || '<div class="card"><div class="sub">Aucun coffret dans cette VE. Ajoute-les dans l\'onglet 🔋 Batteries.</div></div>'}`;
+  return `<div class="hint" style="margin:0 2px 10px">🧮 Autonomie théorique = capacité utile ÷ consommation. Aide pour toi uniquement : rien n'est reporté sur les fiches VCE, le rapport ou l'Excel. Tension (12 V / 24 V) déduite de la mesure « Sous tension ». Les mesures se corrigent dans le coffret.</div>
+    ${recap}${body || '<div class="card"><div class="sub">Aucun coffret dans cette VE. Ajoute-les dans l\'onglet 🔋 Batteries.</div></div>'}`;
 }
 function download(name, content, type){
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([content], {type}));
